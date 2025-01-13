@@ -5,16 +5,20 @@
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    font-family: 'Open Sans', 'Helvetica Neue', sans-serif;
     line-height: 1.6;
     color: #333;
     background-color: #f5f5f5;
+    padding: 20px;
 }
 
 .container {
     max-width: 1400px;
     margin: 0 auto;
+    background: white;
     padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 h1 {
@@ -25,14 +29,19 @@ h1 {
 
 .filters {
     display: flex;
+    flex-direction: column;
     gap: 20px;
     margin-bottom: 20px;
-    flex-wrap: wrap;
-    align-items: center;
-    background: white;
     padding: 15px;
+    background: #f8f9fa;
     border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.select-container {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
 }
 
 select {
@@ -41,22 +50,19 @@ select {
     border-radius: 4px;
     font-size: 14px;
     min-width: 200px;
+    background: white;
 }
 
 select:focus {
     outline: none;
     border-color: #2196F3;
-    box-shadow: 0 0 0 2px rgba(33,150,243,0.2);
+    box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
 }
 
 .slider-container {
     display: flex;
-    align-items: center;
-    gap: 10px;
-    background: #f8f9fa;
-    padding: 8px 12px;
-    border-radius: 4px;
-    min-width: 250px;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .slider-container label {
@@ -65,110 +71,41 @@ select:focus {
 }
 
 input[type="range"] {
-    flex: 1;
+    width: 100%;
+    max-width: 300px;
 }
 
 .visualization {
     display: grid;
     grid-template-columns: 1fr 300px;
     gap: 20px;
-    margin-bottom: 20px;
+    margin-top: 20px;
 }
 
 #coachNetwork {
     background: white;
     border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     min-height: 600px;
 }
 
 .details-panel {
     background: white;
-    padding: 20px;
+    padding: 15px;
     border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     max-height: 600px;
     overflow-y: auto;
 }
 
-.details-panel h2 {
-    margin-bottom: 15px;
-    color: #2196F3;
-}
-
-.node {
-    cursor: pointer;
-}
-
-.node circle {
-    fill: #fff;
-    stroke: #333;
-    stroke-width: 2px;
-}
-
-.node text {
-    font-size: 12px;
-    pointer-events: none;
-}
-
-.node rect {
-    pointer-events: none;
-}
-
-.link {
-    fill: none;
-    stroke-opacity: 0.6;
-    stroke-width: 1.5px;
-    transition: stroke-opacity 0.2s;
-}
-
-.link:hover {
-    stroke-opacity: 1;
-}
-
-.coach-history {
-    margin-top: 1rem;
-}
-
-.history-item {
-    padding: 0.5rem;
-    margin-bottom: 0.5rem;
-    background: #f8f8f8;
-    border-radius: 4px;
-    transition: background-color 0.2s;
-}
-
-.history-item:hover {
-    background: #f0f0f0;
-}
-
-.team-name {
-    font-weight: bold;
-    color: #2c5282;
-}
-
-.position {
-    color: #666;
-    font-style: italic;
-}
-
-.years {
-    font-size: 0.9rem;
-    color: #888;
-}
-
 .relationship-legend {
-    background: white;
-    padding: 15px;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     display: flex;
-    gap: 20px;
     flex-wrap: wrap;
-    justify-content: center;
+    gap: 15px;
+    font-size: 14px;
 }
 
-.legend-item {
+.relationship-legend div {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -176,37 +113,9 @@ input[type="range"] {
 
 .legend-color {
     width: 20px;
-    height: 4px;
-    border-radius: 2px;
-}
-
-.legend-color.head-coach { background-color: #E91E63; }
-.legend-color.offensive { background-color: #FF9800; }
-.legend-color.defensive { background-color: #9C27B0; }
-.legend-color.special-teams { background-color: #795548; }
-
-#coachInfo {
-    font-size: 14px;
-}
-
-#coachInfo h3 {
-    color: #2196F3;
-    margin-bottom: 10px;
-}
-
-#coachInfo h4 {
-    color: #666;
-    margin: 15px 0 10px;
-}
-
-#coachInfo ul {
-    list-style-position: inside;
-    margin-left: 10px;
-}
-
-#coachInfo li {
-    margin-bottom: 5px;
-    color: #555;
+    height: 20px;
+    border-radius: 4px;
+    display: inline-block;
 }
 
 @media (max-width: 1200px) {
@@ -220,12 +129,15 @@ input[type="range"] {
 }
 
 @media (max-width: 768px) {
-    .filters {
-        flex-direction: column;
-        align-items: stretch;
+    .container {
+        padding: 10px;
     }
     
-    select, .slider-container {
+    .filters {
+        padding: 10px;
+    }
+    
+    select {
         width: 100%;
     }
 } 

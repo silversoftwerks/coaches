@@ -179,9 +179,17 @@ function drawNetwork(data) {
     // Add circles to nodes
     node.append("circle")
         .attr("r", getNodeRadius)
-        .attr("fill", getNodeColor)
-        .attr("stroke", "#fff")
-        .attr("stroke-width", 2);
+        .attr("fill", d => {
+            if (d.type === 'coach') return getNodeColor(d);
+            const colors = getTeamColors(d.name);
+            return colors.primary;
+        })
+        .attr("stroke", d => {
+            if (d.type === 'coach') return '#fff';
+            const colors = getTeamColors(d.name);
+            return colors.secondary;
+        })
+        .attr("stroke-width", d => d.type === 'team' ? 4 : 2);
 
     // Add labels to nodes
     const labels = node.append("text")
@@ -375,46 +383,49 @@ function getNodeRadius(d) {
     return d.type === 'team' ? 25 : 15;
 }
 
-function getNodeColor(d) {
-    if (d.type === 'coach') return '#2196F3';
-
-    // Team colors
+function getTeamColors(teamName) {
     const teamColors = {
-        'Arizona Cardinals': '#97233F',
-        'Atlanta Falcons': '#A71930',
-        'Baltimore Ravens': '#241773',
-        'Buffalo Bills': '#00338D',
-        'Carolina Panthers': '#0085CA',
-        'Chicago Bears': '#0B162A',
-        'Cincinnati Bengals': '#FB4F14',
-        'Cleveland Browns': '#FF3C00',
-        'Dallas Cowboys': '#003594',
-        'Denver Broncos': '#FB4F14',
-        'Detroit Lions': '#0076B6',
-        'Green Bay Packers': '#203731',
-        'Houston Texans': '#03202F',
-        'Indianapolis Colts': '#002C5F',
-        'Jacksonville Jaguars': '#006778',
-        'Kansas City Chiefs': '#E31837',
-        'Las Vegas Raiders': '#000000',
-        'Los Angeles Chargers': '#0080C6',
-        'Los Angeles Rams': '#003594',
-        'Miami Dolphins': '#008E97',
-        'Minnesota Vikings': '#4F2683',
-        'New England Patriots': '#002244',
-        'New Orleans Saints': '#D3BC8D',
-        'New York Giants': '#0B2265',
-        'New York Jets': '#125740',
-        'Philadelphia Eagles': '#004C54',
-        'Pittsburgh Steelers': '#FFB612',
-        'San Francisco 49ers': '#AA0000',
-        'Seattle Seahawks': '#002244',
-        'Tampa Bay Buccaneers': '#D50A0A',
-        'Tennessee Titans': '#0C2340',
-        'Washington Commanders': '#5A1414'
+        'Arizona Cardinals': { primary: '#97233F', secondary: '#000000' },
+        'Atlanta Falcons': { primary: '#A71930', secondary: '#000000' },
+        'Baltimore Ravens': { primary: '#241773', secondary: '#9E7C0C' },
+        'Buffalo Bills': { primary: '#00338D', secondary: '#C60C30' },
+        'Carolina Panthers': { primary: '#0085CA', secondary: '#101820' },
+        'Chicago Bears': { primary: '#0B162A', secondary: '#C83803' },
+        'Cincinnati Bengals': { primary: '#FB4F14', secondary: '#000000' },
+        'Cleveland Browns': { primary: '#FF3C00', secondary: '#311D00' },
+        'Dallas Cowboys': { primary: '#003594', secondary: '#869397' },
+        'Denver Broncos': { primary: '#FB4F14', secondary: '#002244' },
+        'Detroit Lions': { primary: '#0076B6', secondary: '#B0B7BC' },
+        'Green Bay Packers': { primary: '#203731', secondary: '#FFB612' },
+        'Houston Texans': { primary: '#03202F', secondary: '#A71930' },
+        'Indianapolis Colts': { primary: '#002C5F', secondary: '#A2AAAD' },
+        'Jacksonville Jaguars': { primary: '#006778', secondary: '#9F792C' },
+        'Kansas City Chiefs': { primary: '#E31837', secondary: '#FFB81C' },
+        'Las Vegas Raiders': { primary: '#000000', secondary: '#A5ACAF' },
+        'Los Angeles Chargers': { primary: '#0080C6', secondary: '#FFC20E' },
+        'Los Angeles Rams': { primary: '#003594', secondary: '#FFA300' },
+        'Miami Dolphins': { primary: '#008E97', secondary: '#FC4C02' },
+        'Minnesota Vikings': { primary: '#4F2683', secondary: '#FFC62F' },
+        'New England Patriots': { primary: '#002244', secondary: '#C60C30' },
+        'New Orleans Saints': { primary: '#D3BC8D', secondary: '#101820' },
+        'New York Giants': { primary: '#0B2265', secondary: '#A71930' },
+        'New York Jets': { primary: '#125740', secondary: '#000000' },
+        'Philadelphia Eagles': { primary: '#004C54', secondary: '#A5ACAF' },
+        'Pittsburgh Steelers': { primary: '#FFB612', secondary: '#101820' },
+        'San Francisco 49ers': { primary: '#AA0000', secondary: '#B3995D' },
+        'Seattle Seahawks': { primary: '#002244', secondary: '#69BE28' },
+        'Tampa Bay Buccaneers': { primary: '#D50A0A', secondary: '#FF7900' },
+        'Tennessee Titans': { primary: '#0C2340', secondary: '#4B92DB' },
+        'Washington Commanders': { primary: '#5A1414', secondary: '#FFB612' }
     };
 
-    return teamColors[d.name] || '#4CAF50';
+    return teamColors[teamName] || { primary: '#4CAF50', secondary: '#2E7D32' };
+}
+
+function getNodeColor(d) {
+    if (d.type === 'coach') return '#2196F3';
+    const colors = getTeamColors(d.name);
+    return colors.primary;
 }
 
 function getLinkColor(d) {

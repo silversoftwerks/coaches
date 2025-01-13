@@ -21,6 +21,12 @@ function processCoachingData() {
         return nodeMap.get(name);
     }
 
+    // Helper function to split years into separate terms
+    function splitTerms(years) {
+        // Handle cases like "2015-2016, 2019-2021"
+        return years.split(',').map(term => term.trim());
+    }
+
     // Process all teams and their coaching staffs
     Object.entries(team_coach_history).forEach(([teamName, teamData]) => {
         // Add team node
@@ -29,23 +35,29 @@ function processCoachingData() {
         // Process head coaches
         teamData.head_coaches.forEach(coach => {
             const coachNode = addNode(coach.name, 'coach', teamName, 'Head Coach');
-            links.push({
-                source: coachNode.id,
-                target: teamNode.id,
-                type: 'head_coach',
-                years: coach.years
+            // Split terms and create separate links
+            splitTerms(coach.years).forEach(term => {
+                links.push({
+                    source: coachNode.id,
+                    target: teamNode.id,
+                    type: 'head_coach',
+                    years: term
+                });
             });
         });
 
         // Process coordinators
         teamData.coordinators.forEach(coord => {
             const coordNode = addNode(coord.name, 'coach', teamName, coord.position);
-            links.push({
-                source: coordNode.id,
-                target: teamNode.id,
-                type: coord.position.toLowerCase().includes('offensive') ? 'offensive' :
-                    coord.position.toLowerCase().includes('defensive') ? 'defensive' : 'special_teams',
-                years: coord.years
+            // Split terms and create separate links
+            splitTerms(coord.years).forEach(term => {
+                links.push({
+                    source: coordNode.id,
+                    target: teamNode.id,
+                    type: coord.position.toLowerCase().includes('offensive') ? 'offensive' :
+                        coord.position.toLowerCase().includes('defensive') ? 'defensive' : 'special_teams',
+                    years: term
+                });
             });
         });
     });
@@ -143,14 +155,38 @@ function drawNetwork(data) {
         .force("x", d3.forceX(width / 2).strength(0.1))
         .force("y", d3.forceY(height / 2).strength(0.1));
 
-    // Create links
+    // Create links with curved paths for multiple terms
     const link = g.append("g")
-        .selectAll("line")
+        .selectAll("path")
         .data(links)
-        .join("line")
+        .join("path")
         .attr("stroke", getLinkColor)
         .attr("stroke-width", getLinkWidth)
-        .attr("stroke-opacity", 0.6);
+        .attr("stroke-opacity", 0.6)
+        .attr("fill", "none")
+        .attr("marker-end", "url(#arrowhead)")
+        .on("mouseover", (event, d) => {
+            // Show years on hover
+            const tooltip = g.append("text")
+                .attr("class", "tooltip")
+                .attr("x", (d.source.x + d.target.x) / 2)
+                .attr("y", (d.source.y + d.target.y) / 2 - 10)
+                .attr("text-anchor", "middle")
+                .attr("fill", "#333")
+                .style("font-size", "12px")
+                .style("pointer-events", "none")
+                .text(d.years);
+
+            d3.select(event.currentTarget)
+                .attr("stroke-opacity", 1)
+                .attr("stroke-width", getLinkWidth(d) + 1);
+        })
+        .on("mouseout", (event, d) => {
+            g.selectAll(".tooltip").remove();
+            d3.select(event.currentTarget)
+                .attr("stroke-opacity", 0.6)
+                .attr("stroke-width", getLinkWidth(d));
+        });
 
     // Create nodes
     const node = g.append("g")
@@ -218,11 +254,34 @@ function drawNetwork(data) {
 
     // Update positions on tick
     simulation.on("tick", () => {
-        link
-            .attr("x1", d => d.source.x)
-            .attr("y1", d => d.source.y)
-            .attr("x2", d => d.target.x)
-            .attr("y2", d => d.target.y);
+        link.attr("d", d => {
+            const dx = d.target.x - d.source.x;
+            const dy = d.target.y - d.source.y;
+            const dr = Math.sqrt(dx * dx + dy * dy);
+
+            // Get all links between these nodes to calculate offset
+            const sameNodes = links.filter(l =>
+                (l.source.id === d.source.id && l.target.id === d.target.id) ||
+                (l.source.id === d.target.id && l.target.id === d.source.id)
+            );
+            const linkIndex = sameNodes.indexOf(d);
+            const total = sameNodes.length;
+
+            // Calculate curve offset based on number of links
+            const offset = total === 1 ? 0 : (linkIndex - (total - 1) / 2) * 20;
+
+            if (offset === 0) {
+                return `M${d.source.x},${d.source.y}L${d.target.x},${d.target.y}`;
+            } else {
+                const midX = (d.source.x + d.target.x) / 2;
+                const midY = (d.source.y + d.target.y) / 2;
+                const normalX = -dy / dr;
+                const normalY = dx / dr;
+                const midXOffset = midX + normalX * offset;
+                const midYOffset = midY + normalY * offset;
+                return `M${d.source.x},${d.source.y}Q${midXOffset},${midYOffset},${d.target.x},${d.target.y}`;
+            }
+        });
 
         node
             .attr("transform", d => `translate(${d.x},${d.y})`);

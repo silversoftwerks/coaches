@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NFL Coaching Connections</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+    <script src="team_coach_history.js"></script>
+    
+</head>
+<body>
+    <div class="container">
+        <h1>NFL Coaching Connections</h1>
+        <div class="filters">
+            <select id="teamSelect">
+                <option value="all">All Teams</option>
+            </select>
+            <select id="positionSelect">
+                <option value="all">All Positions</option>
+                <option value="head_coach">Head Coach</option>
+                <option value="offensive_coordinator">Offensive Coordinator</option>
+                <option value="defensive_coordinator">Defensive Coordinator</option>
+                <option value="special_teams_coordinator">Special Teams Coordinator</option>
+            </select>
+            <select id="coachSelect">
+                <option value="">Select a Coach</option>
+            </select>
+            <div class="slider-container">
+                <label for="distanceSlider">Max Distance: <span id="distanceValue">3</span></label>
+                <input type="range" id="distanceSlider" min="1" max="6" value="3" step="1">
+            </div>
+        </div>
+        <div class="visualization">
+            <div id="coachNetwork"></div>
+            <div id="coachDetails" class="details-panel">
+                <h2>Coach Details</h2>
+                <div id="coachInfo">
+                    <p>Select a coach to view their history</p>
+                </div>
+            </div>
+        </div>
+        <div class="relationship-legend">
+            <div class="legend-item">
+                <span class="legend-color head-coach"></span>
+                <span>Head Coach</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-color offensive"></span>
+                <span>Offensive Coordinator</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-color defensive"></span>
+                <span>Defensive Coordinator</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-color special-teams"></span>
+                <span>Special Teams Coordinator</span>
+            </div>
+        </div>
+    </div>
+    <script src="visualization.js"></script>
+</body>
+</html> 

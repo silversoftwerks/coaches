@@ -366,8 +366,17 @@ function initializeFilters() {
 
     // Add distance slider event listener
     const distanceSlider = document.getElementById('distanceSlider');
-    if (distanceSlider) {
-        distanceSlider.addEventListener('input', () => {
+    const distanceValue = document.getElementById('distanceValue');
+
+    if (distanceSlider && distanceValue) {
+        // Set initial value
+        distanceValue.textContent = distanceSlider.value;
+
+        distanceSlider.addEventListener('input', (e) => {
+            // Update the displayed value
+            distanceValue.textContent = e.target.value;
+
+            // Update visualization if something is selected
             const selectedCoach = coachSelect.value;
             const selectedTeam = teamSelect.value;
             if (selectedCoach || selectedTeam) {

@@ -254,7 +254,7 @@ function updateVisualization(selectedCoach, selectedTeam) {
     if (selectedCoach) {
         filteredData = filterDataByCoach(selectedCoach, maxDistance);
     } else if (selectedTeam) {
-        filteredData = filterDataByTeam(selectedTeam);
+        filteredData = filterDataByTeam(selectedTeam, maxDistance);
     } else {
         filteredData = processCoachingData();
     }
@@ -292,25 +292,30 @@ function filterDataByCoach(coachName, maxDistance) {
     return { nodes: filteredNodes, links: filteredLinks };
 }
 
-function filterDataByTeam(teamName) {
+function filterDataByTeam(teamName, maxDistance) {
     const { nodes, links } = processCoachingData();
     const teamNode = nodes.find(n => n.name === teamName);
 
     if (!teamNode) return { nodes, links };
 
-    // Get all coaches directly connected to this team
-    const connectedNodeIds = new Set([teamNode.id]);
-    links.forEach(link => {
-        if (link.source === teamNode.id) connectedNodeIds.add(link.target);
-        if (link.target === teamNode.id) connectedNodeIds.add(link.source);
+    // Get distances for all reachable nodes
+    const distances = findNodesWithinDistance(teamNode, maxDistance, nodes, links);
+
+    // Filter nodes within maxDistance
+    const filteredNodes = nodes.filter(node => {
+        const distance = distances.get(node.id);
+        return distance !== undefined && distance <= maxDistance;
     });
 
-    return {
-        nodes: nodes.filter(n => connectedNodeIds.has(n.id)),
-        links: links.filter(l =>
-            connectedNodeIds.has(l.source) && connectedNodeIds.has(l.target)
-        )
-    };
+    // Filter links where both ends are in our filtered nodes
+    const nodeIds = new Set(filteredNodes.map(n => n.id));
+    const filteredLinks = links.filter(link => {
+        const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
+        const targetId = typeof link.target === 'object' ? link.target.id : link.target;
+        return nodeIds.has(sourceId) && nodeIds.has(targetId);
+    });
+
+    return { nodes: filteredNodes, links: filteredLinks };
 }
 
 // Initialize filters and visualization
@@ -465,4 +470,123 @@ function drag(simulation) {
         .on("start", dragstarted)
         .on("drag", dragged)
         .on("end", dragended);
+}
+
+function updateCoachDetails(coachName) {
+    const detailsPanel = document.getElementById('detailsPanel');
+    const { nodes, links } = processCoachingData();
+    const coach = nodes.find(n => n.name === coachName);
+
+    if (!coach) {
+        detailsPanel.innerHTML = '<p>Coach not found</p>';
+        return;
+    }
+
+    // Get all connections for this coach
+    const coachConnections = links.filter(link => {
+        const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
+        const targetId = typeof link.target === 'object' ? link.target.id : link.target;
+        return sourceId === coach.id || targetId === coach.id;
+    });
+
+    let html = `
+        <h2 style="color: #2196F3; margin-bottom: 15px;">${coach.name}</h2>
+        <h3 style="color: #666; margin-bottom: 10px;">Coaching History</h3>
+    `;
+
+    // Group connections by team
+    const teamHistory = new Map();
+    coachConnections.forEach(conn => {
+        const teamNode = nodes.find(n => n.id === (conn.source === coach.id ? conn.target : conn.source));
+        if (!teamHistory.has(teamNode.name)) {
+            teamHistory.set(teamNode.name, []);
+        }
+        teamHistory.get(teamNode.name).push({
+            position: conn.type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+            years: conn.years
+        });
+    });
+
+    // Display history by team
+    teamHistory.forEach((positions, teamName) => {
+        const teamColors = getTeamColors(teamName);
+        html += `
+            <div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 4px; border-left: 4px solid ${teamColors.primary};">
+                <div style="font-weight: bold; color: ${teamColors.primary};">${teamName}</div>
+        `;
+        positions.forEach(pos => {
+            html += `
+                <div style="margin-top: 5px;">
+                    <span style="color: #666;">${pos.position}</span>
+                    <span style="color: #888; font-size: 0.9em;"> (${pos.years})</span>
+                </div>
+            `;
+        });
+        html += '</div>';
+    });
+
+    detailsPanel.innerHTML = html;
+}
+
+function updateTeamDetails(teamName) {
+    const detailsPanel = document.getElementById('detailsPanel');
+    const { nodes, links } = processCoachingData();
+    const team = nodes.find(n => n.name === teamName);
+
+    if (!team) {
+        detailsPanel.innerHTML = '<p>Team not found</p>';
+        return;
+    }
+
+    const teamColors = getTeamColors(teamName);
+
+    // Get all connections for this team
+    const teamConnections = links.filter(link => {
+        const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
+        const targetId = typeof link.target === 'object' ? link.target.id : link.target;
+        return sourceId === team.id || targetId === team.id;
+    });
+
+    let html = `
+        <h2 style="color: ${teamColors.primary}; margin-bottom: 15px;">${team.name}</h2>
+        <h3 style="color: #666; margin-bottom: 10px;">Coaching Staff History</h3>
+    `;
+
+    // Group coaches by position
+    const positionGroups = {
+        'head_coach': { title: 'Head Coaches', coaches: [] },
+        'offensive': { title: 'Offensive Coordinators', coaches: [] },
+        'defensive': { title: 'Defensive Coordinators', coaches: [] },
+        'special_teams': { title: 'Special Teams Coordinators', coaches: [] }
+    };
+
+    teamConnections.forEach(conn => {
+        const coach = nodes.find(n => n.id === (conn.source === team.id ? conn.target : conn.source));
+        positionGroups[conn.type].coaches.push({
+            name: coach.name,
+            years: conn.years
+        });
+    });
+
+    // Display coaches by position
+    Object.entries(positionGroups).forEach(([type, group]) => {
+        if (group.coaches.length > 0) {
+            const color = getLinkColor({ type });
+            html += `
+                <div style="margin-bottom: 20px;">
+                    <h4 style="color: ${color}; margin-bottom: 10px;">${group.title}</h4>
+            `;
+            group.coaches.forEach(coach => {
+                html += `
+                    <div style="margin-bottom: 8px; padding: 8px; background: #f8f9fa; border-radius: 4px;">
+                        <span style="font-weight: bold;">${coach.name}</span>
+                        <span style="color: #888; font-size: 0.9em;"> (${coach.years})</span>
+                    </div>
+                `;
+            });
+            html += '</div>';
+        }
+    });
+
+    detailsPanel.innerHTML = html;
 } 

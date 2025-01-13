@@ -1,5 +1,5 @@
 // Process the coaching data to create nodes and links for visualization
-function processCoachingData(selectedCoach = null, maxDistance = 3) {
+function processCoachingData() {
     const nodes = [];
     const links = [];
     const nodeMap = new Map(); // Map to track unique nodes
@@ -50,55 +50,52 @@ function processCoachingData(selectedCoach = null, maxDistance = 3) {
         });
     });
 
-    // If a coach is selected, filter nodes and links based on distance
-    if (selectedCoach && maxDistance > 0) {
-        const selectedNode = Array.from(nodeMap.values()).find(n => n.name === selectedCoach);
-        if (selectedNode) {
-            const connectedNodes = findNodesWithinDistance(selectedNode, maxDistance, nodes, links);
-            const filteredNodes = nodes.filter(n => connectedNodes.has(n.id));
-            const filteredLinks = links.filter(l =>
-                connectedNodes.has(l.source) && connectedNodes.has(l.target));
-            return { nodes: filteredNodes, links: filteredLinks };
-        }
-    }
-
-    return { nodes, links };
+    return { nodes, links, nodeMap };
 }
 
 // Find nodes within a certain distance of the start node
 function findNodesWithinDistance(startNode, maxDistance, nodes, links) {
     const distances = new Map();
-    const connectedNodes = new Set();
     const queue = [{ node: startNode, distance: 0 }];
-
     distances.set(startNode.id, 0);
-    connectedNodes.add(startNode.id);
 
+    // Process queue
     while (queue.length > 0) {
-        const { node, distance } = queue.shift();
+        const current = queue.shift();
 
-        if (distance >= maxDistance) continue;
+        // Skip if we've reached max distance
+        if (current.distance >= maxDistance) continue;
 
-        // Find all connected links
+        // Find all connected nodes through links
         links.forEach(link => {
+            let connectedId = null;
+
+            // Handle both object and primitive source/target
             const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
             const targetId = typeof link.target === 'object' ? link.target.id : link.target;
 
-            if (sourceId === node.id || targetId === node.id) {
-                const connectedId = sourceId === node.id ? targetId : sourceId;
-                if (!distances.has(connectedId)) {
-                    distances.set(connectedId, distance + 1);
-                    connectedNodes.add(connectedId);
-                    const connectedNode = nodes.find(n => n.id === connectedId);
-                    if (connectedNode) {
-                        queue.push({ node: connectedNode, distance: distance + 1 });
-                    }
+            // Find the connected node ID
+            if (sourceId === current.node.id) {
+                connectedId = targetId;
+            } else if (targetId === current.node.id) {
+                connectedId = sourceId;
+            }
+
+            // If we found a connection and haven't visited it yet
+            if (connectedId !== null && !distances.has(connectedId)) {
+                const connectedNode = nodes.find(n => n.id === connectedId);
+                if (connectedNode) {
+                    distances.set(connectedId, current.distance + 1);
+                    queue.push({
+                        node: connectedNode,
+                        distance: current.distance + 1
+                    });
                 }
             }
         });
     }
 
-    return connectedNodes;
+    return distances;
 }
 
 // Initialize the visualization
@@ -242,7 +239,8 @@ function drawNetwork(data) {
 
 // Update visualization based on selection
 function updateVisualization(selectedCoach, selectedTeam) {
-    const maxDistance = parseInt(document.getElementById('distanceSlider').value);
+    // Get the current distance value, default to 2 if not set
+    const maxDistance = parseInt(document.getElementById('distanceSlider')?.value || '2');
     let filteredData;
 
     if (selectedCoach) {
@@ -253,50 +251,117 @@ function updateVisualization(selectedCoach, selectedTeam) {
         filteredData = processCoachingData();
     }
 
+    // Clear existing visualization
+    d3.select('#coachNetwork').selectAll("*").remove();
+
+    // Draw new visualization
     drawNetwork(filteredData);
 }
 
 function filterDataByCoach(coachName, maxDistance) {
-    const allData = processCoachingData();
-    const startNode = allData.nodes.find(n => n.name === coachName);
+    const { nodes, links } = processCoachingData();
+    const startNode = nodes.find(n => n.name === coachName);
 
-    if (!startNode) return allData;
+    if (!startNode) return { nodes, links };
 
-    const nodesWithinDistance = findNodesWithinDistance(startNode, maxDistance, allData.nodes, allData.links);
-    const nodeIds = new Set(nodesWithinDistance.map(n => n.id));
+    // Get distances for all reachable nodes
+    const distances = findNodesWithinDistance(startNode, maxDistance, nodes, links);
+
+    // Filter nodes within maxDistance
+    const filteredNodes = nodes.filter(node => {
+        const distance = distances.get(node.id);
+        return distance !== undefined && distance <= maxDistance;
+    });
+
+    // Filter links where both ends are in our filtered nodes
+    const nodeIds = new Set(filteredNodes.map(n => n.id));
+    const filteredLinks = links.filter(link => {
+        const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
+        const targetId = typeof link.target === 'object' ? link.target.id : link.target;
+        return nodeIds.has(sourceId) && nodeIds.has(targetId);
+    });
+
+    return { nodes: filteredNodes, links: filteredLinks };
+}
+
+function filterDataByTeam(teamName) {
+    const { nodes, links } = processCoachingData();
+    const teamNode = nodes.find(n => n.name === teamName);
+
+    if (!teamNode) return { nodes, links };
+
+    // Get all coaches directly connected to this team
+    const connectedNodeIds = new Set([teamNode.id]);
+    links.forEach(link => {
+        if (link.source === teamNode.id) connectedNodeIds.add(link.target);
+        if (link.target === teamNode.id) connectedNodeIds.add(link.source);
+    });
 
     return {
-        nodes: nodesWithinDistance,
-        links: allData.links.filter(l =>
-            nodeIds.has(l.source.id || l.source) &&
-            nodeIds.has(l.target.id || l.target)
+        nodes: nodes.filter(n => connectedNodeIds.has(n.id)),
+        links: links.filter(l =>
+            connectedNodeIds.has(l.source) && connectedNodeIds.has(l.target)
         )
     };
 }
 
-function filterDataByTeam(teamName) {
-    const allData = processCoachingData();
-    const teamNode = allData.nodes.find(n => n.name === teamName);
+// Initialize filters and visualization
+function initializeFilters() {
+    // Initialize coach dropdown
+    const coachSelect = document.getElementById('coachSelect');
+    const { nodes } = processCoachingData();
+    const coaches = nodes.filter(n => n.type === 'coach');
 
-    if (!teamNode) return allData;
-
-    // Get all coaches directly connected to this team
-    const connectedNodeIds = new Set([teamNode.id]);
-    allData.links.forEach(link => {
-        const sourceId = link.source.id || link.source;
-        const targetId = link.target.id || link.target;
-
-        if (sourceId === teamNode.id) connectedNodeIds.add(targetId);
-        if (targetId === teamNode.id) connectedNodeIds.add(sourceId);
+    coachSelect.innerHTML = '<option value="">Select a Coach</option>';
+    coaches.sort((a, b) => a.name.localeCompare(b.name)).forEach(coach => {
+        const option = document.createElement('option');
+        option.value = coach.name;
+        option.textContent = `${coach.name} (${coach.position})`;
+        coachSelect.appendChild(option);
     });
 
-    return {
-        nodes: allData.nodes.filter(n => connectedNodeIds.has(n.id)),
-        links: allData.links.filter(l =>
-            connectedNodeIds.has(l.source.id || l.source) &&
-            connectedNodeIds.has(l.target.id || l.target)
-        )
-    };
+    // Initialize team dropdown
+    const teamSelect = document.getElementById('teamSelect');
+    const teams = nodes.filter(n => n.type === 'team');
+
+    teamSelect.innerHTML = '<option value="">Select a Team</option>';
+    teams.sort((a, b) => a.name.localeCompare(b.name)).forEach(team => {
+        const option = document.createElement('option');
+        option.value = team.name;
+        option.textContent = team.name;
+        teamSelect.appendChild(option);
+    });
+
+    // Add event listeners
+    coachSelect.addEventListener('change', (e) => {
+        const selectedCoach = e.target.value;
+        if (selectedCoach) {
+            teamSelect.value = ''; // Clear team selection
+            updateVisualization(selectedCoach, null);
+            updateCoachDetails(selectedCoach);
+        }
+    });
+
+    teamSelect.addEventListener('change', (e) => {
+        const selectedTeam = e.target.value;
+        if (selectedTeam) {
+            coachSelect.value = ''; // Clear coach selection
+            updateVisualization(null, selectedTeam);
+            updateTeamDetails(selectedTeam);
+        }
+    });
+
+    // Add distance slider event listener
+    const distanceSlider = document.getElementById('distanceSlider');
+    if (distanceSlider) {
+        distanceSlider.addEventListener('input', () => {
+            const selectedCoach = coachSelect.value;
+            const selectedTeam = teamSelect.value;
+            if (selectedCoach || selectedTeam) {
+                updateVisualization(selectedCoach, selectedTeam);
+            }
+        });
+    }
 }
 
 // Initialize when DOM is loaded

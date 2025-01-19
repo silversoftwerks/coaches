@@ -128,206 +128,172 @@ function findNodesWithinDistance(startNode, maxDistance, nodes, links) {
     return distances;
 }
 
-// Initialize the visualization
+// Initialize visualization and return references
 function initializeVisualization() {
-    const container = d3.select('#coachNetwork');
-    const width = container.node().getBoundingClientRect().width;
+    // Clear any existing visualization
+    d3.select('#coachNetwork').selectAll('*').remove();
+
+    // Get the container dimensions
+    const container = document.getElementById('coachNetwork');
+    const width = container.clientWidth;
     const height = 600;
 
-    // Clear any existing visualization
-    container.selectAll("*").remove();
+    // Create SVG element
+    const svg = d3.select('#coachNetwork')
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height)
+        .attr('viewBox', [0, 0, width, height]);
 
-    // Create SVG
-    const svg = container.append("svg")
-        .attr("width", width)
-        .attr("height", height)
-        .attr("viewBox", [0, 0, width, height]);
+    // Create a group for zoom/pan
+    const g = svg.append('g');
 
     // Add zoom behavior
-    const g = svg.append("g");
-    svg.call(d3.zoom()
-        .scaleExtent([0.1, 4])
-        .on("zoom", (event) => {
-            g.attr("transform", event.transform);
-        }));
+    const zoom = d3.zoom()
+        .scaleExtent([0.5, 2])
+        .on('zoom', (event) => {
+            g.attr('transform', event.transform);
+        });
+
+    svg.call(zoom);
 
     return { svg, g, width, height };
 }
 
+// Drag behavior for nodes
+function drag(simulation) {
+    function dragstarted(event) {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        event.subject.fx = event.subject.x;
+        event.subject.fy = event.subject.y;
+    }
+
+    function dragged(event) {
+        event.subject.fx = event.x;
+        event.subject.fy = event.y;
+    }
+
+    function dragended(event) {
+        if (!event.active) simulation.alphaTarget(0);
+        event.subject.fx = null;
+        event.subject.fy = null;
+    }
+
+    return d3.drag()
+        .on('start', dragstarted)
+        .on('drag', dragged)
+        .on('end', dragended);
+}
+
 // Draw the network visualization
-function drawNetwork(data) {
+function drawNetwork(data, selectedTeams = []) {
     const { svg, g, width, height } = initializeVisualization();
-    const { nodes, links } = data || processCoachingData();
+
+    // Process data if not provided
+    if (!data) {
+        data = processCoachingData();
+    }
 
     // Create force simulation
-    const simulation = d3.forceSimulation(nodes)
-        .force("link", d3.forceLink(links)
-            .id(d => d.id)
-            .distance(150))
-        .force("charge", d3.forceManyBody()
-            .strength(d => d.type === 'team' ? -1000 : -500)
-            .distanceMax(500))
-        .force("center", d3.forceCenter(width / 2, height / 2))
-        .force("collision", d3.forceCollide()
-            .radius(d => getNodeRadius(d) + 15))
-        .force("x", d3.forceX(width / 2).strength(0.1))
-        .force("y", d3.forceY(height / 2).strength(0.1));
-
-    // Create links with curved paths for multiple terms
-    const link = g.append("g")
-        .selectAll("path")
-        .data(links)
-        .join("path")
-        .attr("stroke", getLinkColor)
-        .attr("stroke-width", getLinkWidth)
-        .attr("stroke-opacity", d => {
-            const currentYear = new Date().getFullYear();
-            return d.yearEnd >= currentYear - 2 ? 0.8 : 0.4;
-        })
-        .attr("stroke-dasharray", d => {
-            const currentYear = new Date().getFullYear();
-            return d.yearEnd < currentYear - 2 ? "4,4" : "none";
-        })
-        .attr("fill", "none")
-        .on("mouseover", (event, d) => {
-            const tooltip = g.append("text")
-                .attr("class", "tooltip")
-                .attr("x", (d.source.x + d.target.x) / 2)
-                .attr("y", (d.source.y + d.target.y) / 2 - 10)
-                .attr("text-anchor", "middle")
-                .attr("fill", "#333")
-                .style("font-size", "12px")
-                .style("pointer-events", "none")
-                .text(d.years);
-
-            d3.select(event.currentTarget)
-                .attr("stroke-opacity", 1)
-                .attr("stroke-width", getLinkWidth(d) + 1);
-        })
-        .on("mouseout", (event, d) => {
-            g.selectAll(".tooltip").remove();
-            d3.select(event.currentTarget)
-                .attr("stroke-opacity", d => {
-                    const currentYear = new Date().getFullYear();
-                    return d.yearEnd >= currentYear - 2 ? 0.8 : 0.4;
-                })
-                .attr("stroke-width", getLinkWidth(d));
-        });
-
-    // Create nodes
-    const node = g.append("g")
-        .selectAll("g")
-        .data(nodes)
-        .join("g")
-        .call(drag(simulation))
-        .on("click", (event, d) => {
-            if (d.type === 'coach') {
-                const coachSelect = document.getElementById('coachSelect');
-                coachSelect.value = d.name;
-                const teamSelect = document.getElementById('teamSelect');
-                teamSelect.value = '';
-                updateVisualization(d.name, null);
-                updateCoachDetails(d.name);
-            } else if (d.type === 'team') {
-                const teamSelect = document.getElementById('teamSelect');
-                teamSelect.value = d.name;
-                const coachSelect = document.getElementById('coachSelect');
-                coachSelect.value = '';
-                updateVisualization(null, d.name);
-                updateTeamDetails(d.name);
+    const simulation = d3.forceSimulation(data.nodes)
+        .force('link', d3.forceLink(data.links).id(d => d.id))
+        .force('charge', d3.forceManyBody().strength(d => d.type === 'team' ? -500 : -200))
+        .force('center', d3.forceCenter(width / 2, height / 2))
+        .force('collision', d3.forceCollide().radius(d => {
+            if (d.type === 'team' && selectedTeams.includes(d.name)) {
+                return 46; // Base(15) * 2 + 16(1rem)
             }
+            return d.type === 'team' ? 15 : 10;
+        }));
+
+    // Draw links
+    const links = g.selectAll('.link')
+        .data(data.links)
+        .join('line')
+        .attr('class', 'link')
+        .each(function (d) {
+            const styles = getLinkStyle(d);
+            d3.select(this)
+                .style('stroke', styles.stroke)
+                .style('stroke-width', styles['stroke-width'])
+                .style('stroke-dasharray', styles['stroke-dasharray']);
         });
 
-    // Add circles to nodes
-    node.append("circle")
-        .attr("r", getNodeRadius)
-        .attr("fill", d => {
-            if (d.type === 'coach') return getNodeColor(d);
-            const colors = getTeamColors(d.name);
-            return colors.primary;
-        })
-        .attr("stroke", d => {
-            if (d.type === 'coach') return '#fff';
-            const colors = getTeamColors(d.name);
-            return colors.secondary;
-        })
-        .attr("stroke-width", d => d.type === 'team' ? 4 : 2);
+    // Create a group for each node to hold both circles
+    const nodeGroups = g.selectAll('.node-group')
+        .data(data.nodes)
+        .join('g')
+        .attr('class', 'node-group')
+        .call(drag(simulation));
 
-    // Add labels to nodes
-    const labels = node.append("text")
-        .text(d => d.name)
-        .attr("x", 0)
-        .attr("y", d => getNodeRadius(d) + 15)
-        .attr("text-anchor", "middle")
-        .attr("fill", "#333")
-        .style("font-size", "12px")
-        .style("pointer-events", "none");
-
-    // Add background rectangles for labels
-    labels.each(function () {
-        const bbox = this.getBBox();
-        const padding = 4;
-        d3.select(this.parentNode)
-            .insert("rect", "text")
-            .attr("x", bbox.x - padding)
-            .attr("y", bbox.y - padding)
-            .attr("width", bbox.width + (padding * 2))
-            .attr("height", bbox.height + (padding * 2))
-            .attr("fill", "white")
-            .attr("fill-opacity", 0.8)
-            .style("pointer-events", "none");
+    // Add outer ring for selected teams
+    nodeGroups.each(function (d) {
+        const group = d3.select(this);
+        if (d.type === 'team' && selectedTeams.includes(d.name)) {
+            const colors = getTeamColors(d.name);
+            group.append('circle')
+                .attr('class', 'outer-ring')
+                .style('fill', 'none')
+                .style('stroke', colors.secondary)
+                .style('stroke-width', 2)
+                .attr('r', 46); // Base(15) * 2 + 16(1rem)
+        }
     });
 
+    // Add main node circles
+    nodeGroups.each(function (d) {
+        const group = d3.select(this);
+        const isSelected = selectedTeams.includes(d.name);
+        const colors = d.type === 'team' ? getTeamColors(d.name) : null;
+
+        group.append('circle')
+            .attr('class', 'node')
+            .style('fill', d.type === 'team' ? colors.primary : '#ffffff')
+            .style('stroke', d.type === 'team' ? colors.secondary : '#666666')
+            .style('stroke-width', 2)
+            .attr('r', d.type === 'team' ?
+                (isSelected ? 30 : 15) : // Teams: selected = 2x size
+                10 // Coaches: regular size
+            );
+    });
+
+    // Add labels
+    const labels = g.selectAll('.label')
+        .data(data.nodes)
+        .join('text')
+        .attr('class', 'label')
+        .text(d => d.name)
+        .style('font-size', '12px')
+        .style('text-anchor', 'middle')
+        .style('pointer-events', 'none');
+
     // Update positions on tick
-    simulation.on("tick", () => {
-        link.attr("d", d => {
-            const dx = d.target.x - d.source.x;
-            const dy = d.target.y - d.source.y;
-            const dr = Math.sqrt(dx * dx + dy * dy);
+    simulation.on('tick', () => {
+        links
+            .attr('x1', d => d.source.x)
+            .attr('y1', d => d.source.y)
+            .attr('x2', d => d.target.x)
+            .attr('y2', d => d.target.y);
 
-            // Get all links between these nodes to calculate offset
-            const sameNodes = links.filter(l =>
-                (l.source.id === d.source.id && l.target.id === d.target.id) ||
-                (l.source.id === d.target.id && l.target.id === d.source.id)
-            ).sort((a, b) => a.yearStart - b.yearStart);
+        nodeGroups
+            .attr('transform', d => `translate(${d.x}, ${d.y})`);
 
-            const linkIndex = sameNodes.indexOf(d);
-            const total = sameNodes.length;
-
-            // Calculate curve offset based on chronological order
-            const baseOffset = 20;
-            const offset = total === 1 ? 0 : (linkIndex - (total - 1) / 2) * baseOffset;
-
-            if (offset === 0) {
-                return `M${d.source.x},${d.source.y}L${d.target.x},${d.target.y}`;
-            } else {
-                const midX = (d.source.x + d.target.x) / 2;
-                const midY = (d.source.y + d.target.y) / 2;
-                const normalX = -dy / dr;
-                const normalY = dx / dr;
-                const midXOffset = midX + normalX * offset;
-                const midYOffset = midY + normalY * offset;
-                return `M${d.source.x},${d.source.y}Q${midXOffset},${midYOffset},${d.target.x},${d.target.y}`;
-            }
-        });
-
-        node
-            .attr("transform", d => `translate(${d.x},${d.y})`);
-
-        // Keep nodes within bounds
-        nodes.forEach(d => {
-            d.x = Math.max(50, Math.min(width - 50, d.x));
-            d.y = Math.max(50, Math.min(height - 50, d.y));
-        });
+        labels
+            .attr('x', d => d.x)
+            .attr('y', d => d.y + 20);
     });
 
     // Handle window resize
+    const container = document.getElementById('coachNetwork');
     window.addEventListener('resize', () => {
-        const newWidth = d3.select('#coachNetwork').node().getBoundingClientRect().width;
-        svg.attr("width", newWidth);
-        simulation.force("center", d3.forceCenter(newWidth / 2, height / 2));
+        const newWidth = container.clientWidth;
+        svg.attr('width', newWidth);
+        simulation.force('center', d3.forceCenter(newWidth / 2, height / 2));
         simulation.alpha(0.3).restart();
     });
+
+    // Update the legend
+    updateLegend();
 
     return simulation;
 }
@@ -406,154 +372,147 @@ function filterDataByTeam(teamName, maxDistance) {
 }
 
 // Find all possible connections between teams
-function findAllConnections(team1, team2, initialMaxDistance = 3) {
-    // Get the processed data first
+function findAllConnections(team1, team2) {
     const { nodes, links } = processCoachingData();
-
-    // Track results
-    const resultNodes = new Set();
-    const resultLinks = new Set();
-    const paths = [];
-
-    // Create a graph representation
+    const nodeMap = new Map(nodes.map(node => [node.id, node]));
     const graph = new Map();
-    const nodeMap = new Map();
 
-    // Initialize nodes with unique IDs
-    nodes.forEach((node, index) => {
-        const nodeId = node.id || `node_${index}`;
-        node.id = nodeId;
-        nodeMap.set(nodeId, node);
-        graph.set(nodeId, new Set());
-    });
-
-    // Build graph edges
+    // Build graph
+    nodes.forEach(node => graph.set(node.id, new Set()));
     links.forEach(link => {
-        const source = typeof link.source === 'object' ? link.source : nodeMap.get(link.source);
-        const target = typeof link.target === 'object' ? link.target : nodeMap.get(link.target);
-
-        if (source && target) {
-            const sourceId = source.id;
-            const targetId = target.id;
-
-            if (graph.has(sourceId) && graph.has(targetId)) {
-                graph.get(sourceId).add({ target: targetId, link });
-                graph.get(targetId).add({ target: sourceId, link });
-            }
-        }
+        graph.get(link.source).add(link.target);
+        graph.get(link.target).add(link.source);
     });
 
-    // Find paths with depth limit
-    function findPathsWithLimit(current, end, maxDepth, visited, currentPath, currentLinks, depth = 0) {
-        // Stop if we've exceeded max depth
-        if (depth > maxDepth) return false;
-
-        // Found a path
-        if (current === end) {
-            paths.push({
-                nodes: [...currentPath],
-                links: [...currentLinks]
-            });
-            return true;
-        }
-
-        const neighbors = graph.get(current);
-        if (!neighbors) return false;
-
-        let foundPath = false;
-        for (const { target, link } of neighbors) {
-            if (!visited.has(target)) {
-                const nextNode = nodeMap.get(target);
-                if (nextNode) {
-                    visited.add(target);
-                    currentPath.push(nextNode);
-                    currentLinks.push(link);
-                    foundPath = findPathsWithLimit(target, end, maxDepth, visited, currentPath, currentLinks, depth + 1) || foundPath;
-                    currentLinks.pop();
-                    currentPath.pop();
-                    visited.delete(target);
-                }
-            }
-        }
-        return foundPath;
-    }
-
-    // Find the team nodes
-    const team1Node = nodes.find(n => n.name === team1);
-    const team2Node = nodes.find(n => n.name === team2);
+    const team1Node = nodes.find(n => n.type === 'team' && n.name === team1);
+    const team2Node = nodes.find(n => n.type === 'team' && n.name === team2);
 
     if (!team1Node || !team2Node) {
         return { nodes: [], links: [], paths: [] };
     }
 
-    // Start with initial max distance
-    let currentMaxDepth = initialMaxDistance;
-    let foundPaths = false;
+    const paths = [];
+    const visited = new Set();
+    const currentPath = [team1Node.id];
+    const currentLinks = [];
 
-    // Try finding paths with current depth
-    const visited = new Set([team1Node.id]);
-    foundPaths = findPathsWithLimit(team1Node.id, team2Node.id, currentMaxDepth, visited, [team1Node], []);
+    function dfs(current, target) {
+        if (current === target) {
+            // Convert path of IDs to full nodes and links
+            const pathNodes = currentPath.map(id => nodeMap.get(id));
+            const pathLinks = currentLinks.map(link => ({
+                source: nodeMap.get(link.source),
+                target: nodeMap.get(link.target),
+                type: link.type,
+                years: link.years
+            }));
+            paths.push({ nodes: pathNodes, links: pathLinks });
+            return;
+        }
 
-    // If no paths found and depth is less than 6, increment and try again
-    while (!foundPaths && currentMaxDepth < 6) {
-        currentMaxDepth++;
-        paths.length = 0; // Clear previous attempts
-        visited.clear();
-        visited.add(team1Node.id);
-        foundPaths = findPathsWithLimit(team1Node.id, team2Node.id, currentMaxDepth, visited, [team1Node], []);
+        visited.add(current);
+        const neighbors = graph.get(current);
+
+        if (neighbors) {
+            for (const neighbor of neighbors) {
+                if (!visited.has(neighbor)) {
+                    // Find the link between current and neighbor
+                    const link = links.find(l =>
+                        (l.source === current && l.target === neighbor) ||
+                        (l.source === neighbor && l.target === current)
+                    );
+
+                    currentPath.push(neighbor);
+                    currentLinks.push(link);
+                    dfs(neighbor, target);
+                    currentPath.pop();
+                    currentLinks.pop();
+                }
+            }
+        }
+        visited.delete(current);
     }
 
-    // Process found paths
+    dfs(team1Node.id, team2Node.id);
+
+    // Get unique nodes and links from all paths
+    const uniqueNodes = new Set();
+    const uniqueLinks = new Set();
     paths.forEach(path => {
-        path.nodes.forEach(node => resultNodes.add(node));
-        path.links.forEach(link => resultLinks.add(link));
+        path.nodes.forEach(node => uniqueNodes.add(node));
+        path.links.forEach(link => uniqueLinks.add(link));
     });
 
-    // Sort paths by length
-    paths.sort((a, b) => a.nodes.length - b.nodes.length);
-
-    // Update details panel
-    updateTeamConnectionDetails(team1, team2, paths);
-
     return {
-        nodes: Array.from(resultNodes),
-        links: Array.from(resultLinks),
-        paths
+        nodes: Array.from(uniqueNodes),
+        links: Array.from(uniqueLinks),
+        paths: paths
     };
 }
 
-function updateTeamConnectionDetails(team1, team2, paths) {
+function updateTeamConnectionDetails(team1, team2, data) {
+    if (!data || !data.paths) return;
+
     const detailsPanel = document.getElementById('detailsPanel');
     if (!detailsPanel) return;
 
-    let html = `<h3>Connections between ${team1} and ${team2}</h3>`;
+    const team1Colors = getTeamColors(team1);
+    const team2Colors = getTeamColors(team2);
 
-    // Group paths by number of steps
-    const pathsBySteps = {};
-    paths.forEach(path => {
-        const steps = path.nodes.length - 1;
-        if (!pathsBySteps[steps]) {
-            pathsBySteps[steps] = [];
+    let html = `
+        <h2 style="margin-bottom: 15px;">All Connections Between:</h2>
+        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <div style="font-weight: bold; color: ${team1Colors.primary};">${team1}</div>
+            <div>and</div>
+            <div style="font-weight: bold; color: ${team2Colors.primary};">${team2}</div>
+        </div>
+    `;
+
+    // Group paths by length (number of steps between teams)
+    const pathsByLength = new Map();
+    data.paths.forEach(path => {
+        // Calculate steps (number of coaches between teams)
+        const steps = Math.floor((path.nodes.length - 2) / 2); // Subtract the two teams and divide by 2 for coaches
+        if (!pathsByLength.has(steps)) {
+            pathsByLength.set(steps, []);
         }
-        pathsBySteps[steps].push(path);
+        pathsByLength.get(steps).push(path);
     });
 
-    // Display paths grouped by number of steps
-    Object.entries(pathsBySteps).forEach(([steps, stepPaths]) => {
-        html += `<h4>${steps}-step Connections (${stepPaths.length} paths)</h4>`;
-        stepPaths.forEach((path, index) => {
-            html += `<div class="path-details">`;
-            html += `<p>Path ${index + 1}:</p>`;
+    // Display paths grouped by length
+    Array.from(pathsByLength.keys()).sort((a, b) => a - b).forEach(steps => {
+        const paths = pathsByLength.get(steps);
+        html += `
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #666; margin-bottom: 10px;">${steps} Step Connection${steps !== 1 ? 's' : ''} (${paths.length} path${paths.length !== 1 ? 's' : ''})</h3>
+        `;
+
+        paths.forEach((path, index) => {
+            html += `<div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 4px;">`;
+
             path.nodes.forEach((node, i) => {
                 if (i > 0) html += ' → ';
-                const color = node.type === 'team' ? getTeamColor(node.name) : getPositionColor(node.position);
-                html += `<span style="color: ${color}">${node.name}</span>`;
-                if (node.type !== 'team' && node.years) {
-                    html += ` (${node.years})`;
+
+                if (node.type === 'team') {
+                    const teamColors = getTeamColors(node.name);
+                    html += `<span style="color: ${teamColors.primary}; font-weight: bold;">${node.name}</span>`;
+                } else {
+                    html += `<span style="color: #333;">${node.name}</span>`;
+                    // Find the connection details from the path's links
+                    const prevNode = i > 0 ? path.nodes[i - 1] : null;
+                    const nextNode = i < path.nodes.length - 1 ? path.nodes[i + 1] : null;
+                    const link = path.links.find(l =>
+                        (l.source === prevNode && l.target === node) ||
+                        (l.source === node && l.target === prevNode)
+                    );
+                    if (link) {
+                        html += `<span style="color: #666; font-size: 0.9em;"> (${link.type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} ${link.years})</span>`;
+                    }
                 }
             });
             html += '</div>';
         });
+        html += '</div>';
     });
 
     detailsPanel.innerHTML = html;
@@ -784,13 +743,22 @@ function initializeFilters() {
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
+    // Process the initial data
+    const data = processCoachingData();
+
+    // Draw the initial network
+    drawNetwork(data);
+
+    // Initialize filters
     initializeFilters();
-    drawNetwork();
 });
 
 // Utility functions
-function getNodeRadius(d) {
-    return d.type === 'team' ? 25 : 15;
+function getNodeRadius(d, isSelected = false) {
+    if (d.type === 'team') {
+        return isSelected ? 20 : 15;
+    }
+    return 10;  // For coach nodes
 }
 
 function getTeamColors(teamName) {
@@ -852,29 +820,51 @@ function getLinkWidth(d) {
     return d.type === 'head_coach' ? 3 : 2;
 }
 
-// Drag behavior
-function drag(simulation) {
-    function dragstarted(event) {
-        if (!event.active) simulation.alphaTarget(0.3).restart();
-        event.subject.fx = event.subject.x;
-        event.subject.fy = event.subject.y;
-    }
+// Get the style for a link based on its type
+function getLinkStyle(link) {
+    const type = link.type || '';
+    const years = link.years || '';
+    const isCurrent = years.includes('present');
 
-    function dragged(event) {
-        event.subject.fx = event.x;
-        event.subject.fy = event.y;
-    }
+    const colors = {
+        'head_coach': '#E91E63',
+        'offensive': '#FF9800',
+        'defensive': '#9C27B0',
+        'special_teams': '#795548'
+    };
 
-    function dragended(event) {
-        if (!event.active) simulation.alphaTarget(0);
-        event.subject.fx = null;
-        event.subject.fy = null;
-    }
+    const color = colors[type] || '#666666';
+    const strokeWidth = type === 'head_coach' ? 4 : 2;
 
-    return d3.drag()
-        .on("start", dragstarted)
-        .on("drag", dragged)
-        .on("end", dragended);
+    return {
+        stroke: color,
+        'stroke-width': strokeWidth,
+        'stroke-dasharray': isCurrent ? null : '4'
+    };
+}
+
+// Get the style for a node based on its type and selection status
+function getNodeStyle(node, selectedTeams) {
+    const isSelected = selectedTeams && selectedTeams.includes(node.name);
+    const baseRadius = node.type === 'team' ? 15 : 10;
+
+    if (node.type === 'team') {
+        const colors = getTeamColors(node.name);
+        return {
+            fill: colors.primary,
+            stroke: colors.secondary,
+            'stroke-width': 2,
+            r: isSelected ? baseRadius * 2 : baseRadius,
+            isSelected: isSelected  // Flag for adding outer ring
+        };
+    } else {
+        return {
+            fill: '#ffffff',
+            stroke: '#666666',
+            'stroke-width': 1,
+            r: baseRadius
+        };
+    }
 }
 
 function updateCoachDetails(coachName) {
@@ -994,4 +984,117 @@ function updateTeamDetails(teamName) {
     });
 
     detailsPanel.innerHTML = html;
+}
+
+// Update the legend with connection types and styles
+function updateLegend() {
+    const legend = document.getElementById('relationshipLegend');
+    if (!legend) return;
+
+    const html = `
+        <div class="legend-title">Connection Types</div>
+        <div class="legend-section">
+            <div class="legend-item">
+                <svg width="30" height="20">
+                    <line x1="5" y1="10" x2="25" y2="10" stroke="#E91E63" stroke-width="4"/>
+                </svg>
+                <span>Head Coach (Current)</span>
+            </div>
+            <div class="legend-item">
+                <svg width="30" height="20">
+                    <line x1="5" y1="10" x2="25" y2="10" stroke="#E91E63" stroke-width="4" stroke-dasharray="4"/>
+                </svg>
+                <span>Head Coach (Historical)</span>
+            </div>
+        </div>
+        <div class="legend-section">
+            <div class="legend-item">
+                <svg width="30" height="20">
+                    <line x1="5" y1="10" x2="25" y2="10" stroke="#FF9800" stroke-width="2"/>
+                </svg>
+                <span>Offensive Coordinator (Current)</span>
+            </div>
+            <div class="legend-item">
+                <svg width="30" height="20">
+                    <line x1="5" y1="10" x2="25" y2="10" stroke="#FF9800" stroke-width="2" stroke-dasharray="4"/>
+                </svg>
+                <span>Offensive Coordinator (Historical)</span>
+            </div>
+        </div>
+        <div class="legend-section">
+            <div class="legend-item">
+                <svg width="30" height="20">
+                    <line x1="5" y1="10" x2="25" y2="10" stroke="#9C27B0" stroke-width="2"/>
+                </svg>
+                <span>Defensive Coordinator (Current)</span>
+            </div>
+            <div class="legend-item">
+                <svg width="30" height="20">
+                    <line x1="5" y1="10" x2="25" y2="10" stroke="#9C27B0" stroke-width="2" stroke-dasharray="4"/>
+                </svg>
+                <span>Defensive Coordinator (Historical)</span>
+            </div>
+        </div>
+        <div class="legend-section">
+            <div class="legend-item">
+                <svg width="30" height="20">
+                    <line x1="5" y1="10" x2="25" y2="10" stroke="#795548" stroke-width="2"/>
+                </svg>
+                <span>Special Teams Coordinator (Current)</span>
+            </div>
+            <div class="legend-item">
+                <svg width="30" height="20">
+                    <line x1="5" y1="10" x2="25" y2="10" stroke="#795548" stroke-width="2" stroke-dasharray="4"/>
+                </svg>
+                <span>Special Teams Coordinator (Historical)</span>
+            </div>
+        </div>
+        <div class="legend-section">
+            <div class="legend-item">
+                <svg width="40" height="30">
+                    <circle cx="20" cy="15" r="10" fill="#ffffff" stroke="#000000" stroke-width="2"/>
+                </svg>
+                <span>Team (Unselected)</span>
+            </div>
+            <div class="legend-item">
+                <svg width="40" height="30">
+                    <circle cx="20" cy="15" r="12" fill="#000000" stroke="#000000" stroke-width="4"/>
+                </svg>
+                <span>Team (Selected)</span>
+            </div>
+        </div>
+    `;
+    legend.innerHTML = html;
+}
+
+// Helper function to format years consistently
+function formatYears(years) {
+    if (!years) return '';
+    const terms = years.split(',').map(term => term.trim());
+    return terms.join(', ');
+}
+
+// Helper function to generate path description
+function getPathDescription(path, nodes, links) {
+    let description = '';
+    path.nodes.forEach((node, i) => {
+        if (i > 0) description += ' → ';
+        const nodeData = nodes.find(n => n.id === node.id);
+        if (nodeData.type === 'team') {
+            const teamColors = getTeamColors(nodeData.name);
+            description += `<span style="color: ${teamColors.primary}; font-weight: bold;">${nodeData.name}</span>`;
+        } else {
+            const prevNode = i > 0 ? path.nodes[i - 1] : null;
+            const nextNode = i < path.nodes.length - 1 ? path.nodes[i + 1] : null;
+            const link = links.find(l =>
+                (l.source === prevNode?.id && l.target === node.id) ||
+                (l.source === node.id && l.target === prevNode?.id)
+            );
+            description += `<span style="color: #333;">${nodeData.name}</span>`;
+            if (link) {
+                description += `<span style="color: #666; font-size: 0.9em;"> (${link.type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} ${formatYears(link.years)})</span>`;
+            }
+        }
+    });
+    return description;
 } 

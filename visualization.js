@@ -174,7 +174,7 @@ function drawNetwork(data) {
             .distanceMax(500))
         .force("center", d3.forceCenter(width / 2, height / 2))
         .force("collision", d3.forceCollide()
-            .radius(d => getNodeRadius(d) + 15))
+            .radius(d => getNodeRadius(d) + 20))
         .force("x", d3.forceX(width / 2).strength(0.1))
         .force("y", d3.forceY(height / 2).strength(0.1));
 
@@ -277,14 +277,14 @@ ${d.years} (${status})`;
                 coachSelect.value = d.name;
                 const teamSelect = document.getElementById('teamSelect');
                 teamSelect.value = '';
-                updateVisualization(d.name, null);
+                updateVisualization(d.name, null, null);
                 updateCoachDetails(d.name);
             } else if (d.type === 'team') {
                 const teamSelect = document.getElementById('teamSelect');
                 teamSelect.value = d.name;
                 const coachSelect = document.getElementById('coachSelect');
                 coachSelect.value = '';
-                updateVisualization(null, d.name);
+                updateVisualization(null, d.name, null);
                 updateTeamDetails(d.name);
             }
         });
@@ -384,15 +384,23 @@ ${d.years} (${status})`;
 }
 
 // Update visualization based on selection
-function updateVisualization(selectedCoach, selectedTeam) {
+function updateVisualization(selectedCoach, newSelectedTeam, newSecondSelectedTeam) {
     // Get the current distance value, default to 2 if not set
     const maxDistance = parseInt(document.getElementById('distanceSlider')?.value || '2');
     let filteredData;
 
+    // Update the selected teams
+    selectedTeam = newSelectedTeam;
+    secondSelectedTeam = newSecondSelectedTeam;
+
     if (selectedCoach) {
         filteredData = filterDataByCoach(selectedCoach, maxDistance);
     } else if (selectedTeam) {
-        filteredData = filterDataByTeam(selectedTeam, maxDistance);
+        if (secondSelectedTeam) {
+            filteredData = filterTeamToTeam(selectedTeam, secondSelectedTeam);
+        } else {
+            filteredData = filterDataByTeam(selectedTeam, maxDistance);
+        }
     } else {
         filteredData = processCoachingData();
     }
@@ -777,7 +785,7 @@ function initializeFilters() {
         if (selectedCoach) {
             teamSelect.value = '';
             secondTeamSelect.value = '';
-            updateVisualization(selectedCoach, null);
+            updateVisualization(selectedCoach, null, null);
             updateCoachDetails(selectedCoach);
         }
     });
@@ -789,10 +797,10 @@ function initializeFilters() {
             coachSelect.value = '';
             if (secondTeam) {
                 const filteredData = filterTeamToTeam(selectedTeam, secondTeam);
-                drawNetwork(filteredData);
+                updateVisualization(null, selectedTeam, secondTeam);
                 updateTeamComparisonDetails(selectedTeam, secondTeam, filteredData);
             } else {
-                updateVisualization(null, selectedTeam);
+                updateVisualization(null, selectedTeam, null);
                 updateTeamDetails(selectedTeam);
             }
         }
@@ -804,10 +812,10 @@ function initializeFilters() {
         if (selectedTeam && secondTeam) {
             coachSelect.value = '';
             const filteredData = filterTeamToTeam(selectedTeam, secondTeam);
-            drawNetwork(filteredData);
+            updateVisualization(null, selectedTeam, secondTeam);
             updateTeamComparisonDetails(selectedTeam, secondTeam, filteredData);
         } else if (selectedTeam) {
-            updateVisualization(null, selectedTeam);
+            updateVisualization(null, selectedTeam, null);
             updateTeamDetails(selectedTeam);
         }
     });
@@ -831,7 +839,7 @@ function initializeFilters() {
             }
 
             if (selectedCoach || selectedTeam) {
-                updateVisualization(selectedCoach, selectedTeam);
+                updateVisualization(selectedCoach, selectedTeam, secondTeam);
             }
         });
     }
@@ -845,7 +853,229 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Utility functions
 function getNodeRadius(d) {
-    return d.type === 'team' ? 25 : 15;
+    const baseRadius = d.type === 'team' ? 25 : 15;
+    // If this is either selected team, make it 40px
+    if (d.type === 'team' && (d.name === selectedTeam || d.name === secondSelectedTeam)) {
+        return 40;
+    }
+    return baseRadius;
+}
+
+function getTeamColors(teamName) {
+    const teamColors = {
+        'Arizona Cardinals': { primary: '#97233F', secondary: '#000000' },
+        'Atlanta Falcons': { primary: '#A71930', secondary: '#000000' },
+        'Baltimore Ravens': { primary: '#241773', secondary: '#9E7C0C' },
+        'Buffalo Bills': { primary: '#00338D', secondary: '#C60C30' },
+        'Carolina Panthers': { primary: '#0085CA', secondary: '#101820' },
+        'Chicago Bears': { primary: '#0B162A', secondary: '#C83803' },
+        'Cincinnati Bengals': { primary: '#FB4F14', secondary: '#000000' },
+        'Cleveland Browns': { primary: '#FF3C00', secondary: '#311D00' },
+        'Dallas Cowboys': { primary: '#003594', secondary: '#869397' },
+        'Denver Broncos': { primary: '#FB4F14', secondary: '#002244' },
+        'Detroit Lions': { primary: '#0076B6', secondary: '#B0B7BC' },
+        'Green Bay Packers': { primary: '#203731', secondary: '#FFB612' },
+        'Houston Texans': { primary: '#03202F', secondary: '#A71930' },
+        'Indianapolis Colts': { primary: '#002C5F', secondary: '#A2AAAD' },
+        'Jacksonville Jaguars': { primary: '#006778', secondary: '#9F792C' },
+        'Kansas City Chiefs': { primary: '#E31837', secondary: '#FFB81C' },
+        'Las Vegas Raiders': { primary: '#000000', secondary: '#A5ACAF' },
+        'Los Angeles Chargers': { primary: '#0080C6', secondary: '#FFC20E' },
+        'Los Angeles Rams': { primary: '#003594', secondary: '#FFA300' },
+        'Miami Dolphins': { primary: '#008E97', secondary: '#FC4C02' },
+        'Minnesota Vikings': { primary: '#4F2683', secondary: '#FFC62F' },
+        'New England Patriots': { primary: '#002244', secondary: '#C60C30' },
+        'New Orleans Saints': { primary: '#D3BC8D', secondary: '#101820' },
+        'New York Giants': { primary: '#0B2265', secondary: '#A71930' },
+        'New York Jets': { primary: '#125740', secondary: '#000000' },
+        'Philadelphia Eagles': { primary: '#004C54', secondary: '#A5ACAF' },
+        'Pittsburgh Steelers': { primary: '#FFB612', secondary: '#101820' },
+        'San Francisco 49ers': { primary: '#AA0000', secondary: '#B3995D' },
+        'Seattle Seahawks': { primary: '#002244', secondary: '#69BE28' },
+        'Tampa Bay Buccaneers': { primary: '#D50A0A', secondary: '#FF7900' },
+        'Tennessee Titans': { primary: '#0C2340', secondary: '#4B92DB' },
+        'Washington Commanders': { primary: '#5A1414', secondary: '#FFB612' }
+    };
+
+    return teamColors[teamName] || { primary: '#4CAF50', secondary: '#2E7D32' };
+}
+
+function getNodeColor(d) {
+    if (d.type === 'coach') return '#2196F3';
+    const colors = getTeamColors(d.name);
+    return colors.primary;
+}
+
+function getLinkColor(d) {
+    const colors = {
+        'head_coach': '#E91E63',
+        'offensive': '#FF9800',
+        'defensive': '#9C27B0',
+        'special_teams': '#795548'
+    };
+    return colors[d.type] || '#999';
+}
+
+function getLinkWidth(d) {
+    return d.type === 'head_coach' ? 3 : 2;
+}
+
+// Drag behavior
+function drag(simulation) {
+    function dragstarted(event) {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        event.subject.fx = event.subject.x;
+        event.subject.fy = event.subject.y;
+    }
+
+    function dragged(event) {
+        event.subject.fx = event.x;
+        event.subject.fy = event.y;
+    }
+
+    function dragended(event) {
+        if (!event.active) simulation.alphaTarget(0);
+        event.subject.fx = null;
+        event.subject.fy = null;
+    }
+
+    return d3.drag()
+        .on("start", dragstarted)
+        .on("drag", dragged)
+        .on("end", dragended);
+}
+
+function updateCoachDetails(coachName) {
+    const detailsPanel = document.getElementById('detailsPanel');
+    const { nodes, links } = processCoachingData();
+    const coach = nodes.find(n => n.name === coachName);
+
+    if (!coach) {
+        detailsPanel.innerHTML = '<p>Coach not found</p>';
+        return;
+    }
+
+    // Get all connections for this coach
+    const coachConnections = links.filter(link => {
+        const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
+        const targetId = typeof link.target === 'object' ? link.target.id : link.target;
+        return sourceId === coach.id || targetId === coach.id;
+    });
+
+    let html = `
+        <h2 style="color: #2196F3; margin-bottom: 15px;">${coach.name}</h2>
+        <h3 style="color: #666; margin-bottom: 10px;">Coaching History</h3>
+    `;
+
+    // Group connections by team
+    const teamHistory = new Map();
+    coachConnections.forEach(conn => {
+        const teamNode = nodes.find(n => n.id === (conn.source === coach.id ? conn.target : conn.source));
+        if (!teamHistory.has(teamNode.name)) {
+            teamHistory.set(teamNode.name, []);
+        }
+        teamHistory.get(teamNode.name).push({
+            position: conn.type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+            years: conn.years
+        });
+    });
+
+    // Display history by team
+    teamHistory.forEach((positions, teamName) => {
+        const teamColors = getTeamColors(teamName);
+        html += `
+            <div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 4px; border-left: 4px solid ${teamColors.primary};">
+                <div style="font-weight: bold; color: ${teamColors.primary};">${teamName}</div>
+        `;
+        positions.forEach(pos => {
+            html += `
+                <div style="margin-top: 5px;">
+                    <span style="color: #666;">${pos.position}</span>
+                    <span style="color: #888; font-size: 0.9em;"> (${pos.years})</span>
+                </div>
+            `;
+        });
+        html += '</div>';
+    });
+
+    detailsPanel.innerHTML = html;
+}
+
+function updateTeamDetails(teamName) {
+    const detailsPanel = document.getElementById('detailsPanel');
+    const { nodes, links } = processCoachingData();
+    const team = nodes.find(n => n.name === teamName);
+
+    if (!team) {
+        detailsPanel.innerHTML = '<p>Team not found</p>';
+        return;
+    }
+
+    const teamColors = getTeamColors(teamName);
+
+    // Get all connections for this team
+    const teamConnections = links.filter(link => {
+        const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
+        const targetId = typeof link.target === 'object' ? link.target.id : link.target;
+        return sourceId === team.id || targetId === team.id;
+    });
+
+    let html = `
+        <h2 style="color: ${teamColors.primary}; margin-bottom: 15px;">${team.name}</h2>
+        <h3 style="color: #666; margin-bottom: 10px;">Coaching Staff History</h3>
+    `;
+
+    // Group coaches by position
+    const positionGroups = {
+        'head_coach': { title: 'Head Coaches', coaches: [] },
+        'offensive': { title: 'Offensive Coordinators', coaches: [] },
+        'defensive': { title: 'Defensive Coordinators', coaches: [] },
+        'special_teams': { title: 'Special Teams Coordinators', coaches: [] }
+    };
+
+    teamConnections.forEach(conn => {
+        const coach = nodes.find(n => n.id === (conn.source === team.id ? conn.target : conn.source));
+        positionGroups[conn.type].coaches.push({
+            name: coach.name,
+            years: conn.years
+        });
+    });
+
+    // Display coaches by position
+    Object.entries(positionGroups).forEach(([type, group]) => {
+        if (group.coaches.length > 0) {
+            const color = getLinkColor({ type });
+            html += `
+                <div style="margin-bottom: 20px;">
+                    <h4 style="color: ${color}; margin-bottom: 10px;">${group.title}</h4>
+            `;
+            group.coaches.forEach(coach => {
+                html += `
+                    <div style="margin-bottom: 8px; padding: 8px; background: #f8f9fa; border-radius: 4px;">
+                        <span style="font-weight: bold;">${coach.name}</span>
+                        <span style="color: #888; font-size: 0.9em;"> (${coach.years})</span>
+                    </div>
+                `;
+            });
+            html += '</div>';
+        }
+    });
+
+    detailsPanel.innerHTML = html;
+}
+
+// Add these near the top of the file with other state variables
+let selectedTeam = null;
+let secondSelectedTeam = null;
+
+// Update the getNodeRadius function
+function getNodeRadius(d) {
+    const baseRadius = d.type === 'team' ? 25 : 15;
+    // If this is either selected team, make it 40px
+    if (d.type === 'team' && (d.name === selectedTeam || d.name === secondSelectedTeam)) {
+        return 40;
+    }
+    return baseRadius;
 }
 
 function getTeamColors(teamName) {

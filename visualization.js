@@ -38,10 +38,15 @@ function processCoachingData() {
         return { start, end: end || start };
     }
 
-    // Helper function to get link order based on years
-    function getLinkOrder(years) {
-        const { start } = parseYearRange(years);
-        return start;
+    // Helper function to check if a year range overlaps with selected years
+    function isInYearRange(yearStr) {
+        if (!selectedStartYear && !selectedEndYear) return true;
+
+        const { start, end } = parseYearRange(yearStr);
+        const filterStart = selectedStartYear || 1960;
+        const filterEnd = selectedEndYear || new Date().getFullYear();
+
+        return (start <= filterEnd && end >= filterStart);
     }
 
     // Process all teams and their coaching staffs
@@ -51,9 +56,13 @@ function processCoachingData() {
 
         // Process head coaches
         teamData.head_coaches.forEach(coach => {
+            if (!isInYearRange(coach.years)) return;
+
             const coachNode = addNode(coach.name, 'coach', teamName, 'Head Coach');
             // Split terms and create separate links
             splitTerms(coach.years).forEach(term => {
+                if (!isInYearRange(term)) return;
+
                 const { start, end } = parseYearRange(term);
                 links.push({
                     source: coachNode.id,
@@ -68,9 +77,13 @@ function processCoachingData() {
 
         // Process coordinators
         teamData.coordinators.forEach(coord => {
+            if (!isInYearRange(coord.years)) return;
+
             const coordNode = addNode(coord.name, 'coach', teamName, coord.position);
             // Split terms and create separate links
             splitTerms(coord.years).forEach(term => {
+                if (!isInYearRange(term)) return;
+
                 const { start, end } = parseYearRange(term);
                 links.push({
                     source: coordNode.id,
@@ -214,9 +227,13 @@ function drawNetwork(data) {
         .attr("stroke-width", getLinkWidth)
         .attr("stroke-opacity", d => {
             const currentYear = new Date().getFullYear();
+            console.log(d.yearEnd, oldestYear, currentYear, d.label)
+
             if (d.yearEnd >= currentYear) return 1.0;  // Present coaches
 
-            return 0.1 + (0.9 * Math.pow((d.yearEnd - oldestYear) / (currentYear - oldestYear), 3));  // Exponential scaling to emphasize recent years
+            const opacity = 0.2 + (0.8 * Math.pow((d.yearEnd - oldestYear) / (Math.max(currentYear - oldestYear + .001, .001)), 3));  // Exponential scaling to emphasize recent years
+            console.log(d, opacity)
+            return parseFloat(opacity.toFixed(2))
         })
         .attr("stroke-dasharray", d => {
             const currentYear = new Date().getFullYear();
@@ -224,7 +241,7 @@ function drawNetwork(data) {
             if (d.yearEnd == currentYear) {
                 return "none";
             }
-            const dashLength = (d.yearEnd - oldestYear)
+            const dashLength = (d.yearEnd - oldestYear + 1)
             const pattern = `${dashLength * 2},3`;  // 4px dash, 4px gap
             return pattern
         })
@@ -727,7 +744,7 @@ function updateTeamConnectionDetails(team1, team2, paths) {
             html += `<p>Path ${index + 1}:</p>`;
             path.nodes.forEach((node, i) => {
                 if (i > 0) html += ' → ';
-                const color = node.type === 'team' ? getTeamColor(node.name) : getPositionColor(node.position);
+                const color = node.type === 'team' ? getTeamColors(node.name).primary : getPositionColor(node.position);
                 html += `<span style="color: ${color}">${node.name}</span>`;
                 if (node.type !== 'team' && node.years) {
                     html += ` (${node.years})`;
@@ -741,42 +758,42 @@ function updateTeamConnectionDetails(team1, team2, paths) {
 }
 
 // Helper function to get team colors
-function getTeamColor(teamName) {
+function getTeamColors(teamName) {
     const teamColors = {
-        'Arizona Cardinals': '#97233F',
-        'Atlanta Falcons': '#A71930',
-        'Baltimore Ravens': '#241773',
-        'Buffalo Bills': '#00338D',
-        'Carolina Panthers': '#0085CA',
-        'Chicago Bears': '#C83803',
-        'Cincinnati Bengals': '#FB4F14',
-        'Cleveland Browns': '#FF3C00',
-        'Dallas Cowboys': '#003594',
-        'Denver Broncos': '#FB4F14',
-        'Detroit Lions': '#0076B6',
-        'Green Bay Packers': '#203731',
-        'Houston Texans': '#03202F',
-        'Indianapolis Colts': '#002C5F',
-        'Jacksonville Jaguars': '#006778',
-        'Kansas City Chiefs': '#E31837',
-        'Las Vegas Raiders': '#000000',
-        'Los Angeles Chargers': '#0080C6',
-        'Los Angeles Rams': '#003594',
-        'Miami Dolphins': '#008E97',
-        'Minnesota Vikings': '#4F2683',
-        'New England Patriots': '#002244',
-        'New Orleans Saints': '#D3BC8D',
-        'New York Giants': '#0B2265',
-        'New York Jets': '#125740',
-        'Philadelphia Eagles': '#004C54',
-        'Pittsburgh Steelers': '#FFB612',
-        'San Francisco 49ers': '#AA0000',
-        'Seattle Seahawks': '#002244',
-        'Tampa Bay Buccaneers': '#D50A0A',
-        'Tennessee Titans': '#0C2340',
-        'Washington Commanders': '#773141'
+        'Arizona Cardinals': { primary: '#97233F', secondary: '#000000' },
+        'Atlanta Falcons': { primary: '#A71930', secondary: '#000000' },
+        'Baltimore Ravens': { primary: '#241773', secondary: '#9E7C0C' },
+        'Buffalo Bills': { primary: '#00338D', secondary: '#C60C30' },
+        'Carolina Panthers': { primary: '#0085CA', secondary: '#101820' },
+        'Chicago Bears': { primary: '#0B162A', secondary: '#C83803' },
+        'Cincinnati Bengals': { primary: '#FB4F14', secondary: '#000000' },
+        'Cleveland Browns': { primary: '#FF3C00', secondary: '#311D00' },
+        'Dallas Cowboys': { primary: '#003594', secondary: '#869397' },
+        'Denver Broncos': { primary: '#FB4F14', secondary: '#002244' },
+        'Detroit Lions': { primary: '#0076B6', secondary: '#B0B7BC' },
+        'Green Bay Packers': { primary: '#203731', secondary: '#FFB612' },
+        'Houston Texans': { primary: '#03202F', secondary: '#A71930' },
+        'Indianapolis Colts': { primary: '#002C5F', secondary: '#A2AAAD' },
+        'Jacksonville Jaguars': { primary: '#006778', secondary: '#9F792C' },
+        'Kansas City Chiefs': { primary: '#E31837', secondary: '#FFB81C' },
+        'Las Vegas Raiders': { primary: '#000000', secondary: '#A5ACAF' },
+        'Los Angeles Chargers': { primary: '#0080C6', secondary: '#FFC20E' },
+        'Los Angeles Rams': { primary: '#003594', secondary: '#FFA300' },
+        'Miami Dolphins': { primary: '#008E97', secondary: '#FC4C02' },
+        'Minnesota Vikings': { primary: '#4F2683', secondary: '#FFC62F' },
+        'New England Patriots': { primary: '#002244', secondary: '#C60C30' },
+        'New Orleans Saints': { primary: '#D3BC8D', secondary: '#101820' },
+        'New York Giants': { primary: '#0B2265', secondary: '#A71930' },
+        'New York Jets': { primary: '#125740', secondary: '#000000' },
+        'Philadelphia Eagles': { primary: '#004C54', secondary: '#A5ACAF' },
+        'Pittsburgh Steelers': { primary: '#FFB612', secondary: '#101820' },
+        'San Francisco 49ers': { primary: '#AA0000', secondary: '#B3995D' },
+        'Seattle Seahawks': { primary: '#002244', secondary: '#69BE28' },
+        'Tampa Bay Buccaneers': { primary: '#D50A0A', secondary: '#FF7900' },
+        'Tennessee Titans': { primary: '#0C2340', secondary: '#4B92DB' },
+        'Washington Commanders': { primary: '#5A1414', secondary: '#FFB612' }
     };
-    return teamColors[teamName] || '#666666';
+    return teamColors[teamName] || { primary: '#4CAF50', secondary: '#2E7D32' };
 }
 
 // Helper function to get position colors
@@ -880,7 +897,26 @@ function initializeFilters() {
     const coachSelect = document.getElementById('coachSelect');
     const teamSelect = document.getElementById('teamSelect');
     const secondTeamSelect = document.getElementById('secondTeamSelect');
+    const startYearInput = document.getElementById('startYear');
+    const endYearInput = document.getElementById('endYear');
     const { nodes } = processCoachingData();
+
+    // Initialize year inputs
+    startYearInput.addEventListener('change', (e) => {
+        selectedStartYear = e.target.value ? parseInt(e.target.value) : null;
+        const selectedCoach = coachSelect.value;
+        const selectedTeam = teamSelect.value;
+        const secondTeam = secondTeamSelect.value;
+        updateVisualization(selectedCoach, selectedTeam, secondTeam);
+    });
+
+    endYearInput.addEventListener('change', (e) => {
+        selectedEndYear = e.target.value ? parseInt(e.target.value) : null;
+        const selectedCoach = coachSelect.value;
+        const selectedTeam = teamSelect.value;
+        const secondTeam = secondTeamSelect.value;
+        updateVisualization(selectedCoach, selectedTeam, secondTeam);
+    });
 
     // Initialize coach dropdown
     const coaches = nodes.filter(n => n.type === 'coach');
@@ -1153,6 +1189,16 @@ document.addEventListener('DOMContentLoaded', () => {
     createUSMap();
 });
 
+// Expose updateYearFilter to window object
+window.updateYearFilter = updateYearFilter;
+
+// Add these near the top of the file with other state variables
+let selectedTeam = null;
+let secondSelectedTeam = null;
+let selectedCoach = null;
+let selectedStartYear = null;
+let selectedEndYear = null;
+
 // Utility functions
 function getNodeRadius(d) {
     const baseRadius = d.type === 'team' ? 25 : 15;
@@ -1165,45 +1211,6 @@ function getNodeRadius(d) {
     return baseRadius;
 }
 
-function getTeamColors(teamName) {
-    const teamColors = {
-        'Arizona Cardinals': { primary: '#97233F', secondary: '#000000' },
-        'Atlanta Falcons': { primary: '#A71930', secondary: '#000000' },
-        'Baltimore Ravens': { primary: '#241773', secondary: '#9E7C0C' },
-        'Buffalo Bills': { primary: '#00338D', secondary: '#C60C30' },
-        'Carolina Panthers': { primary: '#0085CA', secondary: '#101820' },
-        'Chicago Bears': { primary: '#0B162A', secondary: '#C83803' },
-        'Cincinnati Bengals': { primary: '#FB4F14', secondary: '#000000' },
-        'Cleveland Browns': { primary: '#FF3C00', secondary: '#311D00' },
-        'Dallas Cowboys': { primary: '#003594', secondary: '#869397' },
-        'Denver Broncos': { primary: '#FB4F14', secondary: '#002244' },
-        'Detroit Lions': { primary: '#0076B6', secondary: '#B0B7BC' },
-        'Green Bay Packers': { primary: '#203731', secondary: '#FFB612' },
-        'Houston Texans': { primary: '#03202F', secondary: '#A71930' },
-        'Indianapolis Colts': { primary: '#002C5F', secondary: '#A2AAAD' },
-        'Jacksonville Jaguars': { primary: '#006778', secondary: '#9F792C' },
-        'Kansas City Chiefs': { primary: '#E31837', secondary: '#FFB81C' },
-        'Las Vegas Raiders': { primary: '#000000', secondary: '#A5ACAF' },
-        'Los Angeles Chargers': { primary: '#0080C6', secondary: '#FFC20E' },
-        'Los Angeles Rams': { primary: '#003594', secondary: '#FFA300' },
-        'Miami Dolphins': { primary: '#008E97', secondary: '#FC4C02' },
-        'Minnesota Vikings': { primary: '#4F2683', secondary: '#FFC62F' },
-        'New England Patriots': { primary: '#002244', secondary: '#C60C30' },
-        'New Orleans Saints': { primary: '#D3BC8D', secondary: '#101820' },
-        'New York Giants': { primary: '#0B2265', secondary: '#A71930' },
-        'New York Jets': { primary: '#125740', secondary: '#000000' },
-        'Philadelphia Eagles': { primary: '#004C54', secondary: '#A5ACAF' },
-        'Pittsburgh Steelers': { primary: '#FFB612', secondary: '#101820' },
-        'San Francisco 49ers': { primary: '#AA0000', secondary: '#B3995D' },
-        'Seattle Seahawks': { primary: '#002244', secondary: '#69BE28' },
-        'Tampa Bay Buccaneers': { primary: '#D50A0A', secondary: '#FF7900' },
-        'Tennessee Titans': { primary: '#0C2340', secondary: '#4B92DB' },
-        'Washington Commanders': { primary: '#5A1414', secondary: '#FFB612' }
-    };
-
-    return teamColors[teamName] || { primary: '#4CAF50', secondary: '#2E7D32' };
-}
-
 function getNodeColor(d) {
     if (d.type === 'coach') return '#2196F3';
     const colors = getTeamColors(d.name);
@@ -1280,7 +1287,9 @@ function updateCoachDetails(coachName) {
         }
         teamHistory.get(teamNode.name).push({
             position: conn.type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-            years: conn.years
+            years: conn.years,
+            yearStart: conn.yearStart,
+            yearEnd: conn.yearEnd
         });
     });
 
@@ -1293,7 +1302,8 @@ function updateCoachDetails(coachName) {
         `;
         positions.forEach(pos => {
             html += `
-                <div style="margin-top: 5px;">
+                <div class="coach-history-item" style="margin-top: 5px; cursor: pointer;" 
+                     onclick="updateYearFilter(${pos.yearStart}, ${pos.yearEnd})">
                     <span style="color: #666;">${pos.position}</span>
                     <span style="color: #888; font-size: 0.9em;"> (${pos.years})</span>
                 </div>
@@ -1368,222 +1378,21 @@ function updateTeamDetails(teamName) {
     detailsPanel.innerHTML = html;
 }
 
-// Add these near the top of the file with other state variables
-let selectedTeam = null;
-let secondSelectedTeam = null;
-let selectedCoach = null;
+// Add year filter functionality
+function updateYearFilter(start, end) {
+    const startYearInput = document.getElementById('startYear');
+    const endYearInput = document.getElementById('endYear');
 
-// Update the getNodeRadius function
-function getNodeRadius(d) {
-    const baseRadius = d.type === 'team' ? 25 : 15;
-    if (d.type === 'team' && (d.name === selectedTeam || d.name === secondSelectedTeam)) {
-        return 40;
-    }
-    if (d.type === 'coach' && d.name === selectedCoach) {
-        return baseRadius * 1.5;
-    }
-    return baseRadius;
-}
+    startYearInput.value = start;
+    endYearInput.value = end;
 
-function getTeamColors(teamName) {
-    const teamColors = {
-        'Arizona Cardinals': { primary: '#97233F', secondary: '#000000' },
-        'Atlanta Falcons': { primary: '#A71930', secondary: '#000000' },
-        'Baltimore Ravens': { primary: '#241773', secondary: '#9E7C0C' },
-        'Buffalo Bills': { primary: '#00338D', secondary: '#C60C30' },
-        'Carolina Panthers': { primary: '#0085CA', secondary: '#101820' },
-        'Chicago Bears': { primary: '#0B162A', secondary: '#C83803' },
-        'Cincinnati Bengals': { primary: '#FB4F14', secondary: '#000000' },
-        'Cleveland Browns': { primary: '#FF3C00', secondary: '#311D00' },
-        'Dallas Cowboys': { primary: '#003594', secondary: '#869397' },
-        'Denver Broncos': { primary: '#FB4F14', secondary: '#002244' },
-        'Detroit Lions': { primary: '#0076B6', secondary: '#B0B7BC' },
-        'Green Bay Packers': { primary: '#203731', secondary: '#FFB612' },
-        'Houston Texans': { primary: '#03202F', secondary: '#A71930' },
-        'Indianapolis Colts': { primary: '#002C5F', secondary: '#A2AAAD' },
-        'Jacksonville Jaguars': { primary: '#006778', secondary: '#9F792C' },
-        'Kansas City Chiefs': { primary: '#E31837', secondary: '#FFB81C' },
-        'Las Vegas Raiders': { primary: '#000000', secondary: '#A5ACAF' },
-        'Los Angeles Chargers': { primary: '#0080C6', secondary: '#FFC20E' },
-        'Los Angeles Rams': { primary: '#003594', secondary: '#FFA300' },
-        'Miami Dolphins': { primary: '#008E97', secondary: '#FC4C02' },
-        'Minnesota Vikings': { primary: '#4F2683', secondary: '#FFC62F' },
-        'New England Patriots': { primary: '#002244', secondary: '#C60C30' },
-        'New Orleans Saints': { primary: '#D3BC8D', secondary: '#101820' },
-        'New York Giants': { primary: '#0B2265', secondary: '#A71930' },
-        'New York Jets': { primary: '#125740', secondary: '#000000' },
-        'Philadelphia Eagles': { primary: '#004C54', secondary: '#A5ACAF' },
-        'Pittsburgh Steelers': { primary: '#FFB612', secondary: '#101820' },
-        'San Francisco 49ers': { primary: '#AA0000', secondary: '#B3995D' },
-        'Seattle Seahawks': { primary: '#002244', secondary: '#69BE28' },
-        'Tampa Bay Buccaneers': { primary: '#D50A0A', secondary: '#FF7900' },
-        'Tennessee Titans': { primary: '#0C2340', secondary: '#4B92DB' },
-        'Washington Commanders': { primary: '#5A1414', secondary: '#FFB612' }
-    };
+    selectedStartYear = start;
+    selectedEndYear = end;
 
-    return teamColors[teamName] || { primary: '#4CAF50', secondary: '#2E7D32' };
-}
+    // Re-render visualization with new year filter
+    const selectedCoach = document.getElementById('coachSelect').value;
+    const selectedTeam = document.getElementById('teamSelect').value;
+    const secondTeam = document.getElementById('secondTeamSelect').value;
 
-function getNodeColor(d) {
-    if (d.type === 'coach') return '#2196F3';
-    const colors = getTeamColors(d.name);
-    return colors.primary;
-}
-
-function getLinkColor(d) {
-    const colors = {
-        'head_coach': '#E91E63',
-        'offensive': '#FF9800',
-        'defensive': '#9C27B0',
-        'special_teams': '#795548'
-    };
-    return colors[d.type] || '#999';
-}
-
-function getLinkWidth(d) {
-    return d.type === 'head_coach' ? 3 : 2;
-}
-
-// Drag behavior
-function drag(simulation) {
-    function dragstarted(event) {
-        if (!event.active) simulation.alphaTarget(0.3).restart();
-        event.subject.fx = event.subject.x;
-        event.subject.fy = event.subject.y;
-    }
-
-    function dragged(event) {
-        event.subject.fx = event.x;
-        event.subject.fy = event.y;
-    }
-
-    function dragended(event) {
-        if (!event.active) simulation.alphaTarget(0);
-        event.subject.fx = null;
-        event.subject.fy = null;
-    }
-
-    return d3.drag()
-        .on("start", dragstarted)
-        .on("drag", dragged)
-        .on("end", dragended);
-}
-
-function updateCoachDetails(coachName) {
-    const detailsPanel = document.getElementById('detailsPanel');
-    const { nodes, links } = processCoachingData();
-    const coach = nodes.find(n => n.name === coachName);
-
-    if (!coach) {
-        detailsPanel.innerHTML = '<p>Coach not found</p>';
-        return;
-    }
-
-    // Get all connections for this coach
-    const coachConnections = links.filter(link => {
-        const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
-        const targetId = typeof link.target === 'object' ? link.target.id : link.target;
-        return sourceId === coach.id || targetId === coach.id;
-    });
-
-    let html = `
-        <h2 style="color: #2196F3; margin-bottom: 15px;">${coach.name}</h2>
-        <h3 style="color: #666; margin-bottom: 10px;">Coaching History</h3>
-    `;
-
-    // Group connections by team
-    const teamHistory = new Map();
-    coachConnections.forEach(conn => {
-        const teamNode = nodes.find(n => n.id === (conn.source === coach.id ? conn.target : conn.source));
-        if (!teamHistory.has(teamNode.name)) {
-            teamHistory.set(teamNode.name, []);
-        }
-        teamHistory.get(teamNode.name).push({
-            position: conn.type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-            years: conn.years
-        });
-    });
-
-    // Display history by team
-    teamHistory.forEach((positions, teamName) => {
-        const teamColors = getTeamColors(teamName);
-        html += `
-            <div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 4px; border-left: 4px solid ${teamColors.primary};">
-                <div style="font-weight: bold; color: ${teamColors.primary};">${teamName}</div>
-        `;
-        positions.forEach(pos => {
-            html += `
-                <div style="margin-top: 5px;">
-                    <span style="color: #666;">${pos.position}</span>
-                    <span style="color: #888; font-size: 0.9em;"> (${pos.years})</span>
-                </div>
-            `;
-        });
-        html += '</div>';
-    });
-
-    detailsPanel.innerHTML = html;
-}
-
-function updateTeamDetails(teamName) {
-    const detailsPanel = document.getElementById('detailsPanel');
-    const { nodes, links } = processCoachingData();
-    const team = nodes.find(n => n.name === teamName);
-
-    if (!team) {
-        detailsPanel.innerHTML = '<p>Team not found</p>';
-        return;
-    }
-
-    const teamColors = getTeamColors(teamName);
-
-    // Get all connections for this team
-    const teamConnections = links.filter(link => {
-        const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
-        const targetId = typeof link.target === 'object' ? link.target.id : link.target;
-        return sourceId === team.id || targetId === team.id;
-    });
-
-    let html = `
-        <h2 style="color: ${teamColors.primary}; margin-bottom: 15px;">${team.name}</h2>
-        <h3 style="color: #666; margin-bottom: 10px;">Coaching Staff History</h3>
-    `;
-
-    // Group coaches by position
-    const positionGroups = {
-        'head_coach': { title: 'Head Coaches', coaches: [] },
-        'offensive': { title: 'Offensive Coordinators', coaches: [] },
-        'defensive': { title: 'Defensive Coordinators', coaches: [] },
-        'special_teams': { title: 'Special Teams Coordinators', coaches: [] }
-    };
-
-    teamConnections.forEach(conn => {
-        const coach = nodes.find(n => n.id === (conn.source === team.id ? conn.target : conn.source));
-        positionGroups[conn.type].coaches.push({
-            name: coach.name,
-            years: conn.years
-        });
-    });
-
-    // Display coaches by position
-    Object.entries(positionGroups).forEach(([type, group]) => {
-        if (group.coaches.length > 0) {
-            const color = getLinkColor({ type });
-            html += `
-                <div style="margin-bottom: 20px;">
-                    <h4 style="color: ${color}; margin-bottom: 10px;">${group.title}</h4>
-            `;
-            group.coaches.forEach(coach => {
-                html += `
-                    <div style="margin-bottom: 8px; padding: 8px; background: #f8f9fa; border-radius: 4px;">
-                        <span style="font-weight: bold;">${coach.name}</span>
-                        <span style="color: #888; font-size: 0.9em;"> (${coach.years})</span>
-                    </div>
-                `;
-            });
-            html += '</div>';
-        }
-    });
-
-    detailsPanel.innerHTML = html;
+    updateVisualization(selectedCoach, selectedTeam, secondTeam);
 } 

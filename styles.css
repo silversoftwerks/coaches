@@ -44,6 +44,39 @@ h1 {
     flex-wrap: wrap;
 }
 
+.year-filter-container {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.year-input {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.year-input label {
+    font-size: 14px;
+    color: #666;
+}
+
+.year-input input {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    width: 100px;
+    background: white;
+}
+
+.year-input input:focus {
+    outline: none;
+    border-color: #2196F3;
+    box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
+}
+
 select {
     padding: 8px 12px;
     border: 1px solid #ddd;

@@ -27,6 +27,18 @@ function processCoachingData() {
         return years.split(',').map(term => term.trim());
     }
 
+    // Helper function to parse year range
+    function parseYearRange(yearStr) {
+        const [start, end] = yearStr.split('-').map(y => parseInt(y.trim()));
+        return { start, end: end || start };
+    }
+
+    // Helper function to get link order based on years
+    function getLinkOrder(years) {
+        const { start } = parseYearRange(years);
+        return start;
+    }
+
     // Process all teams and their coaching staffs
     Object.entries(team_coach_history).forEach(([teamName, teamData]) => {
         // Add team node
@@ -37,11 +49,14 @@ function processCoachingData() {
             const coachNode = addNode(coach.name, 'coach', teamName, 'Head Coach');
             // Split terms and create separate links
             splitTerms(coach.years).forEach(term => {
+                const { start, end } = parseYearRange(term);
                 links.push({
                     source: coachNode.id,
                     target: teamNode.id,
                     type: 'head_coach',
-                    years: term
+                    years: term,
+                    yearStart: start,
+                    yearEnd: end
                 });
             });
         });
@@ -51,12 +66,15 @@ function processCoachingData() {
             const coordNode = addNode(coord.name, 'coach', teamName, coord.position);
             // Split terms and create separate links
             splitTerms(coord.years).forEach(term => {
+                const { start, end } = parseYearRange(term);
                 links.push({
                     source: coordNode.id,
                     target: teamNode.id,
                     type: coord.position.toLowerCase().includes('offensive') ? 'offensive' :
                         coord.position.toLowerCase().includes('defensive') ? 'defensive' : 'special_teams',
-                    years: term
+                    years: term,
+                    yearStart: start,
+                    yearEnd: end
                 });
             });
         });
@@ -162,11 +180,16 @@ function drawNetwork(data) {
         .join("path")
         .attr("stroke", getLinkColor)
         .attr("stroke-width", getLinkWidth)
-        .attr("stroke-opacity", 0.6)
+        .attr("stroke-opacity", d => {
+            const currentYear = new Date().getFullYear();
+            return d.yearEnd >= currentYear - 2 ? 0.8 : 0.4;
+        })
+        .attr("stroke-dasharray", d => {
+            const currentYear = new Date().getFullYear();
+            return d.yearEnd < currentYear - 2 ? "4,4" : "none";
+        })
         .attr("fill", "none")
-        .attr("marker-end", "url(#arrowhead)")
         .on("mouseover", (event, d) => {
-            // Show years on hover
             const tooltip = g.append("text")
                 .attr("class", "tooltip")
                 .attr("x", (d.source.x + d.target.x) / 2)
@@ -184,7 +207,10 @@ function drawNetwork(data) {
         .on("mouseout", (event, d) => {
             g.selectAll(".tooltip").remove();
             d3.select(event.currentTarget)
-                .attr("stroke-opacity", 0.6)
+                .attr("stroke-opacity", d => {
+                    const currentYear = new Date().getFullYear();
+                    return d.yearEnd >= currentYear - 2 ? 0.8 : 0.4;
+                })
                 .attr("stroke-width", getLinkWidth(d));
         });
 
@@ -263,12 +289,14 @@ function drawNetwork(data) {
             const sameNodes = links.filter(l =>
                 (l.source.id === d.source.id && l.target.id === d.target.id) ||
                 (l.source.id === d.target.id && l.target.id === d.source.id)
-            );
+            ).sort((a, b) => a.yearStart - b.yearStart);
+
             const linkIndex = sameNodes.indexOf(d);
             const total = sameNodes.length;
 
-            // Calculate curve offset based on number of links
-            const offset = total === 1 ? 0 : (linkIndex - (total - 1) / 2) * 20;
+            // Calculate curve offset based on chronological order
+            const baseOffset = 20;
+            const offset = total === 1 ? 0 : (linkIndex - (total - 1) / 2) * baseOffset;
 
             if (offset === 0) {
                 return `M${d.source.x},${d.source.y}L${d.target.x},${d.target.y}`;
@@ -377,13 +405,300 @@ function filterDataByTeam(teamName, maxDistance) {
     return { nodes: filteredNodes, links: filteredLinks };
 }
 
-// Initialize filters and visualization
-function initializeFilters() {
-    // Initialize coach dropdown
-    const coachSelect = document.getElementById('coachSelect');
-    const { nodes } = processCoachingData();
-    const coaches = nodes.filter(n => n.type === 'coach');
+// Find all possible connections between teams
+function findAllConnections(team1, team2, initialMaxDistance = 3) {
+    // Get the processed data first
+    const { nodes, links } = processCoachingData();
 
+    // Track results
+    const resultNodes = new Set();
+    const resultLinks = new Set();
+    const paths = [];
+
+    // Create a graph representation
+    const graph = new Map();
+    const nodeMap = new Map();
+
+    // Initialize nodes with unique IDs
+    nodes.forEach((node, index) => {
+        const nodeId = node.id || `node_${index}`;
+        node.id = nodeId;
+        nodeMap.set(nodeId, node);
+        graph.set(nodeId, new Set());
+    });
+
+    // Build graph edges
+    links.forEach(link => {
+        const source = typeof link.source === 'object' ? link.source : nodeMap.get(link.source);
+        const target = typeof link.target === 'object' ? link.target : nodeMap.get(link.target);
+
+        if (source && target) {
+            const sourceId = source.id;
+            const targetId = target.id;
+
+            if (graph.has(sourceId) && graph.has(targetId)) {
+                graph.get(sourceId).add({ target: targetId, link });
+                graph.get(targetId).add({ target: sourceId, link });
+            }
+        }
+    });
+
+    // Find paths with depth limit
+    function findPathsWithLimit(current, end, maxDepth, visited, currentPath, currentLinks, depth = 0) {
+        // Stop if we've exceeded max depth
+        if (depth > maxDepth) return false;
+
+        // Found a path
+        if (current === end) {
+            paths.push({
+                nodes: [...currentPath],
+                links: [...currentLinks]
+            });
+            return true;
+        }
+
+        const neighbors = graph.get(current);
+        if (!neighbors) return false;
+
+        let foundPath = false;
+        for (const { target, link } of neighbors) {
+            if (!visited.has(target)) {
+                const nextNode = nodeMap.get(target);
+                if (nextNode) {
+                    visited.add(target);
+                    currentPath.push(nextNode);
+                    currentLinks.push(link);
+                    foundPath = findPathsWithLimit(target, end, maxDepth, visited, currentPath, currentLinks, depth + 1) || foundPath;
+                    currentLinks.pop();
+                    currentPath.pop();
+                    visited.delete(target);
+                }
+            }
+        }
+        return foundPath;
+    }
+
+    // Find the team nodes
+    const team1Node = nodes.find(n => n.name === team1);
+    const team2Node = nodes.find(n => n.name === team2);
+
+    if (!team1Node || !team2Node) {
+        return { nodes: [], links: [], paths: [] };
+    }
+
+    // Start with initial max distance
+    let currentMaxDepth = initialMaxDistance;
+    let foundPaths = false;
+
+    // Try finding paths with current depth
+    const visited = new Set([team1Node.id]);
+    foundPaths = findPathsWithLimit(team1Node.id, team2Node.id, currentMaxDepth, visited, [team1Node], []);
+
+    // If no paths found and depth is less than 6, increment and try again
+    while (!foundPaths && currentMaxDepth < 6) {
+        currentMaxDepth++;
+        paths.length = 0; // Clear previous attempts
+        visited.clear();
+        visited.add(team1Node.id);
+        foundPaths = findPathsWithLimit(team1Node.id, team2Node.id, currentMaxDepth, visited, [team1Node], []);
+    }
+
+    // Process found paths
+    paths.forEach(path => {
+        path.nodes.forEach(node => resultNodes.add(node));
+        path.links.forEach(link => resultLinks.add(link));
+    });
+
+    // Sort paths by length
+    paths.sort((a, b) => a.nodes.length - b.nodes.length);
+
+    // Update details panel
+    updateTeamConnectionDetails(team1, team2, paths);
+
+    return {
+        nodes: Array.from(resultNodes),
+        links: Array.from(resultLinks),
+        paths
+    };
+}
+
+function updateTeamConnectionDetails(team1, team2, paths) {
+    const detailsPanel = document.getElementById('detailsPanel');
+    if (!detailsPanel) return;
+
+    let html = `<h3>Connections between ${team1} and ${team2}</h3>`;
+
+    // Group paths by number of steps
+    const pathsBySteps = {};
+    paths.forEach(path => {
+        const steps = path.nodes.length - 1;
+        if (!pathsBySteps[steps]) {
+            pathsBySteps[steps] = [];
+        }
+        pathsBySteps[steps].push(path);
+    });
+
+    // Display paths grouped by number of steps
+    Object.entries(pathsBySteps).forEach(([steps, stepPaths]) => {
+        html += `<h4>${steps}-step Connections (${stepPaths.length} paths)</h4>`;
+        stepPaths.forEach((path, index) => {
+            html += `<div class="path-details">`;
+            html += `<p>Path ${index + 1}:</p>`;
+            path.nodes.forEach((node, i) => {
+                if (i > 0) html += ' → ';
+                const color = node.type === 'team' ? getTeamColor(node.name) : getPositionColor(node.position);
+                html += `<span style="color: ${color}">${node.name}</span>`;
+                if (node.type !== 'team' && node.years) {
+                    html += ` (${node.years})`;
+                }
+            });
+            html += '</div>';
+        });
+    });
+
+    detailsPanel.innerHTML = html;
+}
+
+// Helper function to get team colors
+function getTeamColor(teamName) {
+    const teamColors = {
+        'Arizona Cardinals': '#97233F',
+        'Atlanta Falcons': '#A71930',
+        'Baltimore Ravens': '#241773',
+        'Buffalo Bills': '#00338D',
+        'Carolina Panthers': '#0085CA',
+        'Chicago Bears': '#C83803',
+        'Cincinnati Bengals': '#FB4F14',
+        'Cleveland Browns': '#FF3C00',
+        'Dallas Cowboys': '#003594',
+        'Denver Broncos': '#FB4F14',
+        'Detroit Lions': '#0076B6',
+        'Green Bay Packers': '#203731',
+        'Houston Texans': '#03202F',
+        'Indianapolis Colts': '#002C5F',
+        'Jacksonville Jaguars': '#006778',
+        'Kansas City Chiefs': '#E31837',
+        'Las Vegas Raiders': '#000000',
+        'Los Angeles Chargers': '#0080C6',
+        'Los Angeles Rams': '#003594',
+        'Miami Dolphins': '#008E97',
+        'Minnesota Vikings': '#4F2683',
+        'New England Patriots': '#002244',
+        'New Orleans Saints': '#D3BC8D',
+        'New York Giants': '#0B2265',
+        'New York Jets': '#125740',
+        'Philadelphia Eagles': '#004C54',
+        'Pittsburgh Steelers': '#FFB612',
+        'San Francisco 49ers': '#AA0000',
+        'Seattle Seahawks': '#002244',
+        'Tampa Bay Buccaneers': '#D50A0A',
+        'Tennessee Titans': '#0C2340',
+        'Washington Commanders': '#773141'
+    };
+    return teamColors[teamName] || '#666666';
+}
+
+// Helper function to get position colors
+function getPositionColor(position) {
+    if (!position) return '#666666';
+    if (position.includes('Head Coach')) return '#E91E63';
+    if (position.includes('Offensive')) return '#FF9800';
+    if (position.includes('Defensive')) return '#9C27B0';
+    if (position.includes('Special Teams')) return '#795548';
+    return '#666666';
+}
+
+// Update team comparison details to show all paths
+function updateTeamComparisonDetails(team1, team2, data) {
+    const detailsPanel = document.getElementById('detailsPanel');
+    const team1Colors = getTeamColors(team1);
+    const team2Colors = getTeamColors(team2);
+
+    let html = `
+        <h2 style="margin-bottom: 15px;">All Connections Between:</h2>
+        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <div style="font-weight: bold; color: ${team1Colors.primary};">${team1}</div>
+            <div>and</div>
+            <div style="font-weight: bold; color: ${team2Colors.primary};">${team2}</div>
+        </div>
+    `;
+
+    // Group paths by length
+    const pathsByLength = new Map();
+    data.paths.forEach(path => {
+        const length = path.length - 1; // Number of steps between teams
+        if (!pathsByLength.has(length)) {
+            pathsByLength.set(length, []);
+        }
+        pathsByLength.get(length).push(path);
+    });
+
+    // Display paths grouped by length
+    Array.from(pathsByLength.keys()).sort((a, b) => a - b).forEach(length => {
+        const paths = pathsByLength.get(length);
+        html += `
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #666; margin-bottom: 10px;">${length} Step Connection${length !== 1 ? 's' : ''} (${paths.length} path${paths.length !== 1 ? 's' : ''})</h3>
+        `;
+
+        paths.forEach(path => {
+            html += `<div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 4px;">`;
+
+            // Convert node IDs to names and add connection details
+            for (let i = 0; i < path.length; i++) {
+                const node = data.nodes.find(n => n.id === path[i]);
+                const nextNode = i < path.length - 1 ? data.nodes.find(n => n.id === path[i + 1]) : null;
+
+                if (node.type === 'team') {
+                    const teamColors = getTeamColors(node.name);
+                    html += `<span style="color: ${teamColors.primary}; font-weight: bold;">${node.name}</span>`;
+                } else {
+                    // Find the connection details between this coach and adjacent teams
+                    const prevLink = data.links.find(l =>
+                        (l.source === path[i - 1] && l.target === path[i]) ||
+                        (l.source === path[i] && l.target === path[i - 1])
+                    );
+                    const nextLink = nextNode ? data.links.find(l =>
+                        (l.source === path[i] && l.target === path[i + 1]) ||
+                        (l.source === path[i + 1] && l.target === path[i])
+                    ) : null;
+
+                    html += `
+                        <span style="margin: 0 5px;">→</span>
+                        <span style="color: #333;">${node.name}</span>
+                        <span style="color: #666; font-size: 0.9em;">
+                            (${prevLink ? prevLink.type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : ''} 
+                            ${prevLink ? prevLink.years : ''})
+                        </span>
+                    `;
+                }
+
+                if (i < path.length - 1 && nextNode.type === 'team') {
+                    html += `<span style="margin: 0 5px;">→</span>`;
+                }
+            }
+            html += `</div>`;
+        });
+        html += `</div>`;
+    });
+
+    detailsPanel.innerHTML = html;
+}
+
+// Update filterTeamToTeam to use new connection finding
+function filterTeamToTeam(team1, team2) {
+    return findAllConnections(team1, team2);
+}
+
+// Update initializeFilters function
+function initializeFilters() {
+    const coachSelect = document.getElementById('coachSelect');
+    const teamSelect = document.getElementById('teamSelect');
+    const secondTeamSelect = document.getElementById('secondTeamSelect');
+    const { nodes } = processCoachingData();
+
+    // Initialize coach dropdown
+    const coaches = nodes.filter(n => n.type === 'coach');
     coachSelect.innerHTML = '<option value="">Select a Coach</option>';
     coaches.sort((a, b) => a.name.localeCompare(b.name)).forEach(coach => {
         const option = document.createElement('option');
@@ -392,23 +707,21 @@ function initializeFilters() {
         coachSelect.appendChild(option);
     });
 
-    // Initialize team dropdown
-    const teamSelect = document.getElementById('teamSelect');
+    // Initialize team dropdowns
     const teams = nodes.filter(n => n.type === 'team');
+    const teamOptions = teams.sort((a, b) => a.name.localeCompare(b.name)).map(team => {
+        return `<option value="${team.name}">${team.name}</option>`;
+    }).join('');
 
-    teamSelect.innerHTML = '<option value="">Select a Team</option>';
-    teams.sort((a, b) => a.name.localeCompare(b.name)).forEach(team => {
-        const option = document.createElement('option');
-        option.value = team.name;
-        option.textContent = team.name;
-        teamSelect.appendChild(option);
-    });
+    teamSelect.innerHTML = '<option value="">Select a Team</option>' + teamOptions;
+    secondTeamSelect.innerHTML = '<option value="">Compare with Team (Optional)</option>' + teamOptions;
 
     // Add event listeners
     coachSelect.addEventListener('change', (e) => {
         const selectedCoach = e.target.value;
         if (selectedCoach) {
-            teamSelect.value = ''; // Clear team selection
+            teamSelect.value = '';
+            secondTeamSelect.value = '';
             updateVisualization(selectedCoach, null);
             updateCoachDetails(selectedCoach);
         }
@@ -416,8 +729,29 @@ function initializeFilters() {
 
     teamSelect.addEventListener('change', (e) => {
         const selectedTeam = e.target.value;
+        const secondTeam = secondTeamSelect.value;
         if (selectedTeam) {
-            coachSelect.value = ''; // Clear coach selection
+            coachSelect.value = '';
+            if (secondTeam) {
+                const filteredData = filterTeamToTeam(selectedTeam, secondTeam);
+                drawNetwork(filteredData);
+                updateTeamComparisonDetails(selectedTeam, secondTeam, filteredData);
+            } else {
+                updateVisualization(null, selectedTeam);
+                updateTeamDetails(selectedTeam);
+            }
+        }
+    });
+
+    secondTeamSelect.addEventListener('change', (e) => {
+        const selectedTeam = teamSelect.value;
+        const secondTeam = e.target.value;
+        if (selectedTeam && secondTeam) {
+            coachSelect.value = '';
+            const filteredData = filterTeamToTeam(selectedTeam, secondTeam);
+            drawNetwork(filteredData);
+            updateTeamComparisonDetails(selectedTeam, secondTeam, filteredData);
+        } else if (selectedTeam) {
             updateVisualization(null, selectedTeam);
             updateTeamDetails(selectedTeam);
         }
@@ -428,16 +762,19 @@ function initializeFilters() {
     const distanceValue = document.getElementById('distanceValue');
 
     if (distanceSlider && distanceValue) {
-        // Set initial value
         distanceValue.textContent = distanceSlider.value;
 
         distanceSlider.addEventListener('input', (e) => {
-            // Update the displayed value
             distanceValue.textContent = e.target.value;
-
-            // Update visualization if something is selected
             const selectedCoach = coachSelect.value;
             const selectedTeam = teamSelect.value;
+            const secondTeam = secondTeamSelect.value;
+
+            if (selectedTeam && secondTeam) {
+                // Don't apply distance filter for team comparison
+                return;
+            }
+
             if (selectedCoach || selectedTeam) {
                 updateVisualization(selectedCoach, selectedTeam);
             }

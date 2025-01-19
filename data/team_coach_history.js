@@ -82,7 +82,11 @@ const team_coach_history = {
         "head_coaches": [
             { "name": "Sean McDermott", "years": "2017-present" },
             { "name": "Rex Ryan", "years": "2015-2016" },
-            { "name": "Doug Marrone", "years": "2013-2014" }
+            { "name": "Doug Marrone", "years": "2013-2014" },
+            { "name": "Wade Phillips", "years": "1998-2000" },
+            { "name": "Marv Levy", "years": "1986-1997" },
+            { "name": "Kay Stephenson", "years": "1983-1985" },
+            { "name": "Chuck Knox", "years": "1978-1982" }
         ],
         "coordinators": [
             // Offensive Coordinators
@@ -104,7 +108,14 @@ const team_coach_history = {
             // Special Teams Coordinators
             { "name": "Matthew Smiley", "position": "Special Teams Coordinator", "years": "2022-present" },
             { "name": "Heath Farwell", "position": "Special Teams Coordinator", "years": "2019-2021" },
-            { "name": "Danny Crossman", "position": "Special Teams Coordinator", "years": "2017-2018" }
+            { "name": "Danny Crossman", "position": "Special Teams Coordinator", "years": "2017-2018" },
+            // Historical Offensive Coordinators
+            { "name": "Tom Bresnahan", "position": "Offensive Coordinator", "years": "1994-1997" },
+            { "name": "Ted Marchibroda", "position": "Offensive Coordinator", "years": "1989-1991" },
+            { "name": "Jim Ringo", "position": "Offensive Coordinator", "years": "1986-1988" },
+            // Historical Defensive Coordinators
+            { "name": "Ted Cottrell", "position": "Defensive Coordinator", "years": "1995-1997" },
+            { "name": "Walt Corey", "position": "Defensive Coordinator", "years": "1987-1994" }
         ]
     },
     "Carolina Panthers": {
@@ -142,7 +153,10 @@ const team_coach_history = {
             { "name": "Matt Nagy", "years": "2018-2021" },
             { "name": "John Fox", "years": "2015-2017" },
             { "name": "Marc Trestman", "years": "2013-2014" },
-            { "name": "Lovie Smith", "years": "2004-2012" }
+            { "name": "Lovie Smith", "years": "2004-2012" },
+            { "name": "Dick Jauron", "years": "1999-2003" },
+            { "name": "Dave Wannstedt", "years": "1993-1998" },
+            { "name": "Mike Ditka", "years": "1982-1992" }
         ],
         "coordinators": [
             // Offensive Coordinators
@@ -161,7 +175,17 @@ const team_coach_history = {
             // Special Teams Coordinators
             { "name": "Richard Hightower", "position": "Special Teams Coordinator", "years": "2022-present" },
             { "name": "Chris Tabor", "position": "Special Teams Coordinator", "years": "2018-2021" },
-            { "name": "Jeff Rodgers", "position": "Special Teams Coordinator", "years": "2015-2017" }
+            { "name": "Jeff Rodgers", "position": "Special Teams Coordinator", "years": "2015-2017" },
+            // Historical Offensive Coordinators
+            { "name": "Ron Turner", "position": "Offensive Coordinator", "years": "2005-2009" },
+            { "name": "Terry Shea", "position": "Offensive Coordinator", "years": "2004" },
+            { "name": "John Shoop", "position": "Offensive Coordinator", "years": "2001-2003" },
+            { "name": "Gary Crowton", "position": "Offensive Coordinator", "years": "1999-2000" },
+            // Historical Defensive Coordinators
+            { "name": "Bob Babich", "position": "Defensive Coordinator", "years": "2007-2012" },
+            { "name": "Ron Rivera", "position": "Defensive Coordinator", "years": "2004-2006" },
+            { "name": "Greg Blache", "position": "Defensive Coordinator", "years": "1999-2003" },
+            { "name": "Buddy Ryan", "position": "Defensive Coordinator", "years": "1978-1985" }
         ]
     },
     "Cincinnati Bengals": {
@@ -217,7 +241,13 @@ const team_coach_history = {
     "Dallas Cowboys": {
         "head_coaches": [
             { "name": "Mike McCarthy", "years": "2020-present" },
-            { "name": "Jason Garrett", "years": "2010-2019" }
+            { "name": "Jason Garrett", "years": "2010-2019" },
+            { "name": "Wade Phillips", "years": "2007-2010" },
+            { "name": "Bill Parcells", "years": "2003-2006" },
+            { "name": "Dave Campo", "years": "2000-2002" },
+            { "name": "Barry Switzer", "years": "1994-1997" },
+            { "name": "Jimmy Johnson", "years": "1989-1993" },
+            { "name": "Tom Landry", "years": "1960-1988" }
         ],
         "coordinators": [
             // Offensive Coordinators
@@ -236,7 +266,17 @@ const team_coach_history = {
             // Special Teams Coordinators
             { "name": "John Fassel", "position": "Special Teams Coordinator", "years": "2020-present" },
             { "name": "Keith O'Quinn", "position": "Special Teams Coordinator", "years": "2018-2019" },
-            { "name": "Rich Bisaccia", "position": "Special Teams Coordinator", "years": "2013-2017" }
+            { "name": "Rich Bisaccia", "position": "Special Teams Coordinator", "years": "2013-2017" },
+            // Historical Offensive Coordinators
+            { "name": "Tony Sparano", "position": "Offensive Coordinator", "years": "2006-2007" },
+            { "name": "Sean Payton", "position": "Offensive Coordinator", "years": "2003-2005" },
+            { "name": "Ernie Zampese", "position": "Offensive Coordinator", "years": "1994-1997" },
+            { "name": "Norv Turner", "position": "Offensive Coordinator", "years": "1991-1993" },
+            // Historical Defensive Coordinators
+            { "name": "Brian Stewart", "position": "Defensive Coordinator", "years": "2007-2008" },
+            { "name": "Mike Zimmer", "position": "Defensive Coordinator", "years": "2000-2006" },
+            { "name": "Dave Campo", "position": "Defensive Coordinator", "years": "1995-1999" },
+            { "name": "Butch Davis", "position": "Defensive Coordinator", "years": "1993-1994" }
         ]
     },
     "Denver Broncos": {
@@ -306,7 +346,12 @@ const team_coach_history = {
     "Green Bay Packers": {
         "head_coaches": [
             { "name": "Matt LaFleur", "years": "2019-present" },
-            { "name": "Mike McCarthy", "years": "2006-2018" }
+            { "name": "Mike McCarthy", "years": "2006-2018" },
+            { "name": "Mike Sherman", "years": "2000-2005" },
+            { "name": "Ray Rhodes", "years": "1999" },
+            { "name": "Mike Holmgren", "years": "1992-1998" },
+            { "name": "Lindy Infante", "years": "1988-1991" },
+            { "name": "Forrest Gregg", "years": "1984-1987" }
         ],
         "coordinators": [
             // Offensive Coordinators
@@ -328,7 +373,17 @@ const team_coach_history = {
             { "name": "Maurice Drayton", "position": "Special Teams Coordinator", "years": "2021" },
             { "name": "Shawn Mennenga", "position": "Special Teams Coordinator", "years": "2019-2020" },
             { "name": "Ron Zook", "position": "Special Teams Coordinator", "years": "2015-2018" },
-            { "name": "Shawn Slocum", "position": "Special Teams Coordinator", "years": "2009-2014" }
+            { "name": "Shawn Slocum", "position": "Special Teams Coordinator", "years": "2009-2014" },
+            // Historical Offensive Coordinators
+            { "name": "Tom Rossley", "position": "Offensive Coordinator", "years": "2000-2005" },
+            { "name": "Sherman Lewis", "position": "Offensive Coordinator", "years": "1992-1999" },
+            { "name": "Lindy Infante", "position": "Offensive Coordinator", "years": "1988-1991" },
+            // Historical Defensive Coordinators
+            { "name": "Jim Bates", "position": "Defensive Coordinator", "years": "2005" },
+            { "name": "Ed Donatell", "position": "Defensive Coordinator", "years": "2000-2003" },
+            { "name": "Emmitt Thomas", "position": "Defensive Coordinator", "years": "1999" },
+            { "name": "Fritz Shurmur", "position": "Defensive Coordinator", "years": "1994-1998" },
+            { "name": "Ray Rhodes", "position": "Defensive Coordinator", "years": "1992-1993" }
         ]
     },
     "Houston Texans": {
@@ -546,7 +601,13 @@ const team_coach_history = {
     "Minnesota Vikings": {
         "head_coaches": [
             { "name": "Kevin O'Connell", "years": "2022-present" },
-            { "name": "Mike Zimmer", "years": "2014-2021" }
+            { "name": "Mike Zimmer", "years": "2014-2021" },
+            { "name": "Leslie Frazier", "years": "2011-2013" },
+            { "name": "Brad Childress", "years": "2006-2010" },
+            { "name": "Mike Tice", "years": "2002-2005" },
+            { "name": "Dennis Green", "years": "1992-2001" },
+            { "name": "Jerry Burns", "years": "1986-1991" },
+            { "name": "Bud Grant", "years": "1967-1983, 1985" }
         ],
         "coordinators": [
             // Offensive Coordinators
@@ -567,7 +628,25 @@ const team_coach_history = {
             { "name": "Matt Daniels", "position": "Special Teams Coordinator", "years": "2022-present" },
             { "name": "Ryan Ficken", "position": "Special Teams Coordinator", "years": "2021" },
             { "name": "Marwan Maalouf", "position": "Special Teams Coordinator", "years": "2019-2020" },
-            { "name": "Mike Priefer", "position": "Special Teams Coordinator", "years": "2011-2018" }
+            { "name": "Mike Priefer", "position": "Special Teams Coordinator", "years": "2011-2018" },
+            // Historical Offensive Coordinators
+            { "name": "Bill Musgrave", "position": "Offensive Coordinator", "years": "2011-2013" },
+            { "name": "Darrell Bevell", "position": "Offensive Coordinator", "years": "2006-2010" },
+            { "name": "Scott Linehan", "position": "Offensive Coordinator", "years": "2002-2004" },
+            { "name": "Sherman Lewis", "position": "Offensive Coordinator", "years": "2000-2001" },
+            { "name": "Ray Sherman", "position": "Offensive Coordinator", "years": "1999" },
+            { "name": "Brian Billick", "position": "Offensive Coordinator", "years": "1994-1998" },
+            { "name": "Jack Burns", "position": "Offensive Coordinator", "years": "1992-1993" },
+            // Historical Defensive Coordinators
+            { "name": "Alan Williams", "position": "Defensive Coordinator", "years": "2012-2013" },
+            { "name": "Fred Pagac", "position": "Defensive Coordinator", "years": "2011" },
+            { "name": "Leslie Frazier", "position": "Defensive Coordinator", "years": "2007-2010" },
+            { "name": "Mike Tomlin", "position": "Defensive Coordinator", "years": "2006" },
+            { "name": "Ted Cottrell", "position": "Defensive Coordinator", "years": "2004-2005" },
+            { "name": "Willie Shaw", "position": "Defensive Coordinator", "years": "2002-2003" },
+            { "name": "Emmitt Thomas", "position": "Defensive Coordinator", "years": "2000-2001" },
+            { "name": "Foge Fazio", "position": "Defensive Coordinator", "years": "1995-1999" },
+            { "name": "Tony Dungy", "position": "Defensive Coordinator", "years": "1992-1995" }
         ]
     },
     "New England Patriots": {
@@ -618,7 +697,17 @@ const team_coach_history = {
             // Special Teams Coordinators
             { "name": "Darren Rizzi", "position": "Special Teams Coordinator", "years": "2019-present" },
             { "name": "Bradford Banta", "position": "Special Teams Coordinator", "years": "2017-2018" },
-            { "name": "Greg McMahon", "position": "Special Teams Coordinator", "years": "2008-2016" }
+            { "name": "Greg McMahon", "position": "Special Teams Coordinator", "years": "2008-2016" },
+            // Historical Offensive Coordinators
+            { "name": "Mike McCarthy", "position": "Offensive Coordinator", "years": "2000-2004" },
+            { "name": "Danny Abramowicz", "position": "Offensive Coordinator", "years": "1997-1999" },
+            { "name": "Carl Smith", "position": "Offensive Coordinator", "years": "1986-1996" },
+            // Historical Defensive Coordinators
+            { "name": "Rick Venturi", "position": "Defensive Coordinator", "years": "2002-2005" },
+            { "name": "Ron Zook", "position": "Defensive Coordinator", "years": "2000-2001" },
+            { "name": "Zaven Yaralian", "position": "Defensive Coordinator", "years": "1997-1999" },
+            { "name": "Monte Kiffin", "position": "Defensive Coordinator", "years": "1995-1996" },
+            { "name": "Steve Sidwell", "position": "Defensive Coordinator", "years": "1986-1994" }
         ]
     },
     "New York Giants": {
@@ -715,7 +804,8 @@ const team_coach_history = {
     "Pittsburgh Steelers": {
         "head_coaches": [
             { "name": "Mike Tomlin", "years": "2007-present" },
-            { "name": "Bill Cowher", "years": "1992-2006" }
+            { "name": "Bill Cowher", "years": "1992-2006" },
+            { "name": "Chuck Noll", "years": "1969-1991" }
         ],
         "coordinators": [
             // Offensive Coordinators
@@ -737,14 +827,26 @@ const team_coach_history = {
             { "name": "Danny Smith", "position": "Special Teams Coordinator", "years": "2013-present" },
             { "name": "Al Everest", "position": "Special Teams Coordinator", "years": "2010-2012" },
             { "name": "Bob Ligashesky", "position": "Special Teams Coordinator", "years": "2007-2009" },
-            { "name": "Kevin Spencer", "position": "Special Teams Coordinator", "years": "2002-2006" }
+            { "name": "Kevin Spencer", "position": "Special Teams Coordinator", "years": "2002-2006" },
+            // Historical Offensive Coordinators
+            { "name": "Chan Gailey", "position": "Offensive Coordinator", "years": "1996-1997" },
+            { "name": "Ron Erhardt", "position": "Offensive Coordinator", "years": "1992-1995" },
+            { "name": "Joe Walton", "position": "Offensive Coordinator", "years": "1990-1991" },
+            { "name": "Tom Moore", "position": "Offensive Coordinator", "years": "1983-1989" }
         ]
     },
     "San Francisco 49ers": {
         "head_coaches": [
             { "name": "Kyle Shanahan", "years": "2017-present" },
             { "name": "Chip Kelly", "years": "2016" },
-            { "name": "Jim Tomsula", "years": "2015" }
+            { "name": "Jim Tomsula", "years": "2015" },
+            { "name": "Jim Harbaugh", "years": "2011-2014" },
+            { "name": "Mike Singletary", "years": "2008-2010" },
+            { "name": "Mike Nolan", "years": "2005-2008" },
+            { "name": "Dennis Erickson", "years": "2003-2004" },
+            { "name": "Steve Mariucci", "years": "1997-2002" },
+            { "name": "George Seifert", "years": "1989-1996" },
+            { "name": "Bill Walsh", "years": "1979-1988" }
         ],
         "coordinators": [
             // Offensive Coordinators
@@ -772,7 +874,20 @@ const team_coach_history = {
             { "name": "Derius Swinton II", "position": "Special Teams Coordinator", "years": "2016" },
             { "name": "Thomas McGaughey", "position": "Special Teams Coordinator", "years": "2015" },
             { "name": "Brad Seely", "position": "Special Teams Coordinator", "years": "2011-2014" },
-            { "name": "Al Everest", "position": "Special Teams Coordinator", "years": "2007-2010" }
+            { "name": "Al Everest", "position": "Special Teams Coordinator", "years": "2007-2010" },
+            // Historical Offensive Coordinators
+            { "name": "Mike McCarthy", "position": "Offensive Coordinator", "years": "2005" },
+            { "name": "Ted Tollner", "position": "Offensive Coordinator", "years": "2004" },
+            { "name": "Greg Knapp", "position": "Offensive Coordinator", "years": "2001-2003" },
+            { "name": "Marty Mornhinweg", "position": "Offensive Coordinator", "years": "1997-2000" },
+            { "name": "Marc Trestman", "position": "Offensive Coordinator", "years": "1995-1996" },
+            // Historical Defensive Coordinators
+            { "name": "Mike Singletary", "position": "Defensive Coordinator", "years": "2005-2008" },
+            { "name": "Jim Mora", "position": "Defensive Coordinator", "years": "1999-2003" },
+            { "name": "John Marshall", "position": "Defensive Coordinator", "years": "1997-1998" },
+            { "name": "Pete Carroll", "position": "Defensive Coordinator", "years": "1995-1996" },
+            { "name": "Ray Rhodes", "position": "Defensive Coordinator", "years": "1994" },
+            { "name": "Bill McPherson", "position": "Defensive Coordinator", "years": "1989-1993" }
         ]
     },
     "Seattle Seahawks": {

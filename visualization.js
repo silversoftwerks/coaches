@@ -148,6 +148,36 @@ function initializeVisualization() {
         .attr("height", height)
         .attr("viewBox", [0, 0, width, height]);
 
+    // Add glow filter definition
+    const defs = svg.append("defs");
+    const filter = defs.append("filter")
+        .attr("id", "glow")
+        .attr("x", "-100%")
+        .attr("y", "-100%")
+        .attr("width", "300%")
+        .attr("height", "300%");
+
+    filter.append("feGaussianBlur")
+        .attr("stdDeviation", "12")
+        .attr("result", "coloredBlur");
+
+    filter.append("feFlood")
+        .attr("flood-color", "#FFD700")
+        .attr("flood-opacity", "1")
+        .attr("result", "glowColor");
+
+    filter.append("feComposite")
+        .attr("in", "glowColor")
+        .attr("in2", "coloredBlur")
+        .attr("operator", "in")
+        .attr("result", "softGlow");
+
+    const feMerge = filter.append("feMerge");
+    feMerge.append("feMergeNode")
+        .attr("in", "softGlow");
+    feMerge.append("feMergeNode")
+        .attr("in", "SourceGraphic");
+
     // Add zoom behavior
     const g = svg.append("g");
     svg.call(d3.zoom()
@@ -276,16 +306,31 @@ ${d.years} (${status})`;
                 const coachSelect = document.getElementById('coachSelect');
                 coachSelect.value = d.name;
                 const teamSelect = document.getElementById('teamSelect');
+                const secondTeamSelect = document.getElementById('secondTeamSelect');
                 teamSelect.value = '';
+                secondTeamSelect.value = '';
                 updateVisualization(d.name, null, null);
                 updateCoachDetails(d.name);
             } else if (d.type === 'team') {
                 const teamSelect = document.getElementById('teamSelect');
-                teamSelect.value = d.name;
+                const secondTeamSelect = document.getElementById('secondTeamSelect');
                 const coachSelect = document.getElementById('coachSelect');
                 coachSelect.value = '';
-                updateVisualization(null, d.name, null);
-                updateTeamDetails(d.name);
+
+                // If this team is already selected in either dropdown, keep the selections
+                if (teamSelect.value === d.name || secondTeamSelect.value === d.name) {
+                    updateVisualization(null, teamSelect.value, secondTeamSelect.value);
+                } else {
+                    // If neither dropdown has this team, put it in the first dropdown
+                    teamSelect.value = d.name;
+                    updateVisualization(null, d.name, secondTeamSelect.value);
+                }
+
+                if (secondTeamSelect.value) {
+                    updateTeamComparisonDetails(teamSelect.value, secondTeamSelect.value, filterTeamToTeam(teamSelect.value, secondTeamSelect.value));
+                } else {
+                    updateTeamDetails(d.name);
+                }
             }
         });
 
@@ -293,16 +338,71 @@ ${d.years} (${status})`;
     node.append("circle")
         .attr("r", getNodeRadius)
         .attr("fill", d => {
-            if (d.type === 'coach') return getNodeColor(d);
+            if (d.type === 'coach') {
+                return d.name === selectedCoach ? '#FFD700' : getNodeColor(d);  // Yellow fill for selected coach
+            }
             const colors = getTeamColors(d.name);
             return colors.primary;
         })
         .attr("stroke", d => {
-            if (d.type === 'coach') return '#fff';
+            if (d.type === 'coach') {
+                return d.name === selectedCoach ? '#2196F3' : '#fff';  // Blue outline for selected coach
+            }
             const colors = getTeamColors(d.name);
             return colors.secondary;
         })
-        .attr("stroke-width", d => d.type === 'team' ? 4 : 2);
+        .attr("stroke-width", d => {
+            if (d.type === 'team') return 4;
+            return d.name === selectedCoach ? 3 : 2;  // Thicker stroke for selected coach
+        })
+        .style("filter", d => {
+            if ((d.type === 'coach' && d.name === selectedCoach) ||
+                (d.type === 'team' && (d.name === selectedTeam || d.name === secondSelectedTeam))) {
+                return "url(#glow)";
+            }
+            return "none";
+        });
+
+    // Update circles with transitions
+    node.selectAll("circle")
+        .transition()
+        .duration(750)  // 750ms transition
+        .attr("r", getNodeRadius)
+        .attr("fill", d => {
+            if (d.type === 'coach') {
+                return d.name === selectedCoach ? '#FFD700' : getNodeColor(d);
+            }
+            const colors = getTeamColors(d.name);
+            return colors.primary;
+        })
+        .attr("stroke", d => {
+            if (d.type === 'coach') {
+                return d.name === selectedCoach ? '#2196F3' : '#fff';
+            }
+            const colors = getTeamColors(d.name);
+            return colors.secondary;
+        })
+        .attr("stroke-width", d => {
+            if (d.type === 'team') return 4;
+            return d.name === selectedCoach ? 3 : 2;
+        })
+        .style("filter", d => {
+            if ((d.type === 'coach' && d.name === selectedCoach) ||
+                (d.type === 'team' && (d.name === selectedTeam || d.name === secondSelectedTeam))) {
+                return "url(#glow)";
+            }
+            return "none";
+        });
+
+    // Add 'C' label to selected coach
+    node.filter(d => d.type === 'coach' && d.name === selectedCoach)
+        .append("text")
+        .text("C")
+        .attr("text-anchor", "middle")
+        .attr("dy", "0.35em")  // Vertically center the text
+        .attr("fill", "#000")
+        .attr("font-weight", "bold")
+        .attr("font-size", "12px");
 
     // Add labels to nodes
     const labels = node.append("text")
@@ -310,8 +410,19 @@ ${d.years} (${status})`;
         .attr("x", 0)
         .attr("y", d => getNodeRadius(d) + 15)
         .attr("text-anchor", "middle")
-        .attr("fill", "#333")
+        .attr("fill", d => {
+            if (d.type === 'coach' && d.name === selectedCoach) {
+                return '#E91E63';  // Red text for selected coach
+            }
+            return "#333";
+        })
         .style("font-size", "12px")
+        .style("font-weight", d => {
+            if (d.type === 'coach' && d.name === selectedCoach) {
+                return 'bold';  // Bold text for selected coach
+            }
+            return 'normal';
+        })
         .style("pointer-events", "none");
 
     // Add background rectangles for labels
@@ -384,12 +495,13 @@ ${d.years} (${status})`;
 }
 
 // Update visualization based on selection
-function updateVisualization(selectedCoach, newSelectedTeam, newSecondSelectedTeam) {
+function updateVisualization(newSelectedCoach, newSelectedTeam, newSecondSelectedTeam) {
     // Get the current distance value, default to 2 if not set
     const maxDistance = parseInt(document.getElementById('distanceSlider')?.value || '2');
     let filteredData;
 
-    // Update the selected teams
+    // Update the selected states
+    selectedCoach = newSelectedCoach;
     selectedTeam = newSelectedTeam;
     secondSelectedTeam = newSecondSelectedTeam;
 
@@ -854,9 +966,11 @@ document.addEventListener('DOMContentLoaded', () => {
 // Utility functions
 function getNodeRadius(d) {
     const baseRadius = d.type === 'team' ? 25 : 15;
-    // If this is either selected team, make it 40px
     if (d.type === 'team' && (d.name === selectedTeam || d.name === secondSelectedTeam)) {
         return 40;
+    }
+    if (d.type === 'coach' && d.name === selectedCoach) {
+        return baseRadius * 1.5;
     }
     return baseRadius;
 }
@@ -1067,13 +1181,16 @@ function updateTeamDetails(teamName) {
 // Add these near the top of the file with other state variables
 let selectedTeam = null;
 let secondSelectedTeam = null;
+let selectedCoach = null;
 
 // Update the getNodeRadius function
 function getNodeRadius(d) {
     const baseRadius = d.type === 'team' ? 25 : 15;
-    // If this is either selected team, make it 40px
     if (d.type === 'team' && (d.name === selectedTeam || d.name === secondSelectedTeam)) {
         return 40;
+    }
+    if (d.type === 'coach' && d.name === selectedCoach) {
+        return baseRadius * 1.5;
     }
     return baseRadius;
 }

@@ -29,7 +29,12 @@ function processCoachingData() {
 
     // Helper function to parse year range
     function parseYearRange(yearStr) {
-        const [start, end] = yearStr.split('-').map(y => parseInt(y.trim()));
+        const [start, end] = yearStr.split('-').map(y => {
+            if (y.trim() == 'present') {
+                return parseInt(new Date().getFullYear())
+            };
+            return parseInt(y.trim());
+        });
         return { start, end: end || start };
     }
 
@@ -158,7 +163,7 @@ function initializeVisualization() {
 function drawNetwork(data) {
     const { svg, g, width, height } = initializeVisualization();
     const { nodes, links } = data || processCoachingData();
-
+    const oldestYear = d3.min(links, d => d.yearEnd);
     // Create force simulation
     const simulation = d3.forceSimulation(nodes)
         .force("link", d3.forceLink(links)
@@ -182,23 +187,66 @@ function drawNetwork(data) {
         .attr("stroke-width", getLinkWidth)
         .attr("stroke-opacity", d => {
             const currentYear = new Date().getFullYear();
-            return d.yearEnd >= currentYear - 2 ? 0.8 : 0.4;
+            if (d.yearEnd >= currentYear) return 1.0;  // Present coaches
+
+            return 0.1 + (0.9 * Math.pow((d.yearEnd - oldestYear) / (currentYear - oldestYear), 3));  // Exponential scaling to emphasize recent years
         })
         .attr("stroke-dasharray", d => {
             const currentYear = new Date().getFullYear();
-            return d.yearEnd < currentYear - 2 ? "4,4" : "none";
+
+            if (d.yearEnd == currentYear) {
+                return "none";
+            }
+            const dashLength = (d.yearEnd - oldestYear)
+            const pattern = `${dashLength * 2},3`;  // 4px dash, 4px gap
+            return pattern
         })
         .attr("fill", "none")
         .on("mouseover", (event, d) => {
-            const tooltip = g.append("text")
+            const position = d.type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            const sourceName = typeof d.source === 'object' ? d.source.name : nodes.find(n => n.id === d.source).name;
+            const targetName = typeof d.target === 'object' ? d.target.name : nodes.find(n => n.id === d.target).name;
+            const currentYear = new Date().getFullYear();
+            const status = d.yearEnd >= currentYear ? "Current" :
+                d.yearEnd === currentYear - 1 ? "Last Year" :
+                    `${currentYear - d.yearEnd} years ago`;
+
+            const tooltipContent = `${sourceName} → ${targetName}
+${position}
+${d.years} (${status})`;
+
+            const tooltip = g.append("g")
                 .attr("class", "tooltip")
-                .attr("x", (d.source.x + d.target.x) / 2)
-                .attr("y", (d.source.y + d.target.y) / 2 - 10)
-                .attr("text-anchor", "middle")
+                .attr("pointer-events", "none");
+
+            const tooltipBg = tooltip.append("rect")
+                .attr("fill", "white")
+                .attr("rx", 4)
+                .attr("ry", 4)
+                .attr("opacity", 0.9);
+
+            const tooltipLabel = tooltip.append("text")
                 .attr("fill", "#333")
-                .style("font-size", "12px")
-                .style("pointer-events", "none")
-                .text(d.years);
+                .attr("font-size", "12px")
+                .attr("text-anchor", "middle");
+
+            tooltipLabel.selectAll("tspan")
+                .data(tooltipContent.split("\n"))
+                .join("tspan")
+                .attr("x", 0)
+                .attr("dy", (d, i) => i === 0 ? 0 : "1.2em")
+                .text(d => d);
+
+            const bbox = tooltipLabel.node().getBBox();
+            const padding = 6;
+
+            tooltipBg
+                .attr("x", bbox.x - padding)
+                .attr("y", bbox.y - padding)
+                .attr("width", bbox.width + (padding * 2))
+                .attr("height", bbox.height + (padding * 2));
+
+            tooltip.attr("transform", `translate(${(d.source.x + d.target.x) / 2},${(d.source.y + d.target.y) / 2 - bbox.height - 10})`);
 
             d3.select(event.currentTarget)
                 .attr("stroke-opacity", 1)
@@ -209,7 +257,10 @@ function drawNetwork(data) {
             d3.select(event.currentTarget)
                 .attr("stroke-opacity", d => {
                     const currentYear = new Date().getFullYear();
-                    return d.yearEnd >= currentYear - 2 ? 0.8 : 0.4;
+                    if (d.yearEnd >= currentYear) return 1.0;  // Present coaches
+                    const yearsAgo = currentYear - d.yearEnd;
+                    const maxYearsForOpacity = 10;  // After 10 years, opacity will be at minimum
+                    return Math.max(0.4, 1.0 - (0.6 * yearsAgo / maxYearsForOpacity));  // Scale from 1.0 to 0.4
                 })
                 .attr("stroke-width", getLinkWidth(d));
         });
@@ -613,6 +664,8 @@ function updateTeamComparisonDetails(team1, team2, data) {
     const detailsPanel = document.getElementById('detailsPanel');
     const team1Colors = getTeamColors(team1);
     const team2Colors = getTeamColors(team2);
+    const currentYear = new Date().getFullYear();
+    const oldestYear = d3.min(data.links, d => d.yearEnd);
 
     let html = `
         <h2 style="margin-bottom: 15px;">All Connections Between:</h2>
@@ -626,7 +679,7 @@ function updateTeamComparisonDetails(team1, team2, data) {
     // Group paths by length
     const pathsByLength = new Map();
     data.paths.forEach(path => {
-        const length = path.length - 1; // Number of steps between teams
+        const length = path.nodes.length - 1; // Number of steps between teams
         if (!pathsByLength.has(length)) {
             pathsByLength.set(length, []);
         }
@@ -645,38 +698,40 @@ function updateTeamComparisonDetails(team1, team2, data) {
             html += `<div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 4px;">`;
 
             // Convert node IDs to names and add connection details
-            for (let i = 0; i < path.length; i++) {
-                const node = data.nodes.find(n => n.id === path[i]);
-                const nextNode = i < path.length - 1 ? data.nodes.find(n => n.id === path[i + 1]) : null;
+            path.nodes.forEach((node, i) => {
+                if (i > 0) {
+                    const prevNode = path.nodes[i - 1];
+                    const link = path.links[i - 1];
+
+                    const opacity = link.yearEnd >= currentYear ? 1.0 :
+                        0.1 + (0.9 * Math.pow((link.yearEnd - oldestYear) / (currentYear - oldestYear), 3));
+
+                    let dashStyle = '';
+                    if (link.yearEnd < currentYear) {
+                        const dashLength = (link.yearEnd - oldestYear) * 2;
+                        dashStyle = `background: repeating-linear-gradient(90deg, currentColor 0, currentColor ${dashLength}px, transparent ${dashLength}px, transparent ${dashLength + 3}px)`;
+                    }
+
+                    html += `<span style="margin: 0 5px; opacity: ${opacity};">→</span>`;
+                }
 
                 if (node.type === 'team') {
                     const teamColors = getTeamColors(node.name);
                     html += `<span style="color: ${teamColors.primary}; font-weight: bold;">${node.name}</span>`;
                 } else {
-                    // Find the connection details between this coach and adjacent teams
-                    const prevLink = data.links.find(l =>
-                        (l.source === path[i - 1] && l.target === path[i]) ||
-                        (l.source === path[i] && l.target === path[i - 1])
-                    );
-                    const nextLink = nextNode ? data.links.find(l =>
-                        (l.source === path[i] && l.target === path[i + 1]) ||
-                        (l.source === path[i + 1] && l.target === path[i])
-                    ) : null;
+                    const link = path.links[i - 1];
+                    const opacity = link.yearEnd >= currentYear ? 1.0 :
+                        0.1 + (0.9 * Math.pow((link.yearEnd - oldestYear) / (currentYear - oldestYear), 3));
 
                     html += `
-                        <span style="margin: 0 5px;">→</span>
                         <span style="color: #333;">${node.name}</span>
-                        <span style="color: #666; font-size: 0.9em;">
-                            (${prevLink ? prevLink.type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : ''} 
-                            ${prevLink ? prevLink.years : ''})
+                        <span style="color: #666; font-size: 0.9em; opacity: ${opacity};">
+                            (${link.type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} 
+                            ${link.years})
                         </span>
                     `;
                 }
-
-                if (i < path.length - 1 && nextNode.type === 'team') {
-                    html += `<span style="margin: 0 5px;">→</span>`;
-                }
-            }
+            });
             html += `</div>`;
         });
         html += `</div>`;

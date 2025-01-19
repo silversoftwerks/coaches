@@ -6,6 +6,10 @@
     <title>NFL Coaching Network Visualization</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://unpkg.com/topojson@3"></script>
+    <script src="data/team_coach_history.js"></script>
+    <script src="data/team_locations.js"></script>
+    <script src="visualization.js"></script>
 </head>
 <body>
     <div class="container">
@@ -26,29 +30,40 @@
                 <label for="distanceSlider">Max Distance: <span id="distanceValue">2</span></label>
                 <input type="range" id="distanceSlider" min="1" max="6" value="2" step="1">
             </div>
-            <div class="relationship-legend">
-                <div><span class="legend-color" style="background: #E91E63;"></span>Head Coach</div>
-                <div><span class="legend-color" style="background: #FF9800;"></span>Offensive Coordinator</div>
-                <div><span class="legend-color" style="background: #9C27B0;"></span>Defensive Coordinator</div>
-                <div><span class="legend-color" style="background: #795548;"></span>Special Teams</div>
-                <div style="width: 100%; border-top: 1px solid #ddd; margin: 8px 0;"></div>
-                <div><span class="legend-line">
-                    <svg><line x1="0" y1="1" x2="40" y2="1"></line></svg>
-                </span>Current Position</div>
-                <div><span class="legend-line">                    
-                    <svg><line x1="0" y1="1" x2="40" y2="1" stroke-dasharray="12,2"></line></svg>
-                </span>Recent History</div>
-                <div><span class="legend-line">
-                    <svg><line x1="0" y1="1" x2="40" y2="1" stroke-dasharray="6,2"></line></svg>
-                </span>Older History</div>
+            <div class="legend-container">
+                <div class="relationship-legend">
+                    <div class="position-legend">
+                        <div class="legend-item"><span class="legend-color" style="background: #E91E63;"></span>Head Coach</div>
+                        <div class="legend-item"><span class="legend-color" style="background: #FF9800;"></span>Offensive Coordinator</div>
+                        <div class="legend-item"><span class="legend-color" style="background: #9C27B0;"></span>Defensive Coordinator</div>
+                        <div class="legend-item"><span class="legend-color" style="background: #795548;"></span>Special Teams</div>
+                    </div>
+                    <div class="history-legend">
+                        <div class="legend-item">
+                            <span class="legend-line">
+                                <svg><line x1="0" y1="1" x2="40" y2="1"></line></svg>
+                            </span>Current Position
+                        </div>
+                        <div class="legend-item">           
+                            <span class="legend-line">
+                                <svg><line x1="0" y1="1" x2="40" y2="1" stroke-dasharray="12,2"></line></svg>
+                            </span> Recent History
+                        </div>
+                        <div class="legend-item"    >
+                            <span class="legend-line">
+                            <svg><line x1="0" y1="1" x2="40" y2="1" stroke-dasharray="6,2"></line></svg>
+                        </span>Older History</div>
+                    </div>  
+                </div>
+                <div id="mapContainer"></div>
             </div>
         </div>
         <div class="visualization">
-            <div id="coachNetwork"></div>
+            <div id="coachNetwork">
+                <div id="networkContainer"></div>
+            </div>
             <div class="details-panel" id="detailsPanel"></div>
         </div>
     </div>
-    <script src="data/team_coach_history.js"></script>
-    <script src="visualization.js"></script>
 </body>
 </html> 

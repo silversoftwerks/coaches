@@ -135,12 +135,9 @@ function findNodesWithinDistance(startNode, maxDistance, nodes, links) {
 
 // Initialize the visualization
 function initializeVisualization() {
-    const container = d3.select('#coachNetwork');
+    const container = d3.select('#networkContainer');
     const width = container.node().getBoundingClientRect().width;
     const height = 600;
-
-    // Clear any existing visualization
-    container.selectAll("*").remove();
 
     // Create SVG
     const svg = container.append("svg")
@@ -317,18 +314,19 @@ ${d.years} (${status})`;
                 const coachSelect = document.getElementById('coachSelect');
                 coachSelect.value = '';
 
-                // If this team is already selected in either dropdown, keep the selections
-                if (teamSelect.value === d.name || secondTeamSelect.value === d.name) {
-                    updateVisualization(null, teamSelect.value, secondTeamSelect.value);
+                if (event.shiftKey) {
+                    // Shift-click: select as second team
+                    if (teamSelect.value && teamSelect.value !== d.name) {
+                        secondTeamSelect.value = d.name;
+                        updateVisualization(null, teamSelect.value, d.name);
+                        const filteredData = filterTeamToTeam(teamSelect.value, d.name);
+                        updateTeamComparisonDetails(teamSelect.value, d.name, filteredData);
+                    }
                 } else {
-                    // If neither dropdown has this team, put it in the first dropdown
+                    // Regular click: select as primary team
                     teamSelect.value = d.name;
-                    updateVisualization(null, d.name, secondTeamSelect.value);
-                }
-
-                if (secondTeamSelect.value) {
-                    updateTeamComparisonDetails(teamSelect.value, secondTeamSelect.value, filterTeamToTeam(teamSelect.value, secondTeamSelect.value));
-                } else {
+                    secondTeamSelect.value = '';
+                    updateVisualization(null, d.name, null);
                     updateTeamDetails(d.name);
                 }
             }
@@ -485,7 +483,7 @@ ${d.years} (${status})`;
 
     // Handle window resize
     window.addEventListener('resize', () => {
-        const newWidth = d3.select('#coachNetwork').node().getBoundingClientRect().width;
+        const newWidth = d3.select('#networkContainer').node().getBoundingClientRect().width;
         svg.attr("width", newWidth);
         simulation.force("center", d3.forceCenter(newWidth / 2, height / 2));
         simulation.alpha(0.3).restart();
@@ -517,11 +515,23 @@ function updateVisualization(newSelectedCoach, newSelectedTeam, newSecondSelecte
         filteredData = processCoachingData();
     }
 
-    // Clear existing visualization
-    d3.select('#coachNetwork').selectAll("*").remove();
+    // Get set of team names in the filtered data
+    const networkedTeams = new Set(
+        filteredData.nodes
+            .filter(n => n.type === 'team')
+            .map(n => n.name)
+    );
+
+    // Clear existing network visualization only
+    d3.select('#networkContainer').selectAll("*").remove();
 
     // Draw new visualization
     drawNetwork(filteredData);
+
+    // Update map selection with both teams and networked teams
+    if (window.updateMapSelection) {
+        window.updateMapSelection(selectedTeam, secondSelectedTeam, networkedTeams);
+    }
 }
 
 function filterDataByCoach(coachName, maxDistance) {
@@ -957,10 +967,190 @@ function initializeFilters() {
     }
 }
 
-// Initialize when DOM is loaded
+// Create a small US map with team locations
+function createUSMap() {
+    const mapWidth = 600;
+    const mapHeight = 550;
+    const projection = d3.geoAlbersUsa()
+        .scale(650)
+        .translate([mapWidth / 2, mapHeight / 2]);
+
+    const path = d3.geoPath().projection(projection);
+
+    // Create SVG for the map
+    const mapSvg = d3.select('#mapContainer')
+        .append('svg')
+        .attr('width', mapWidth)
+        .attr('height', mapHeight);
+
+    // Create groups in specific order for layering
+    const mapGroup = mapSvg.append('g').attr('class', 'map-layer');
+    const dotsGroup = mapSvg.append('g').attr('class', 'dots-layer');
+    const arcGroup = mapSvg.append('g').attr('class', 'arc-layer');
+    const selectedDotsGroup = mapSvg.append('g').attr('class', 'selected-dots-layer');
+    const cityRadius = 5;
+    const selectedCityRadius = 8;
+    const hoverRadius = 10;
+    const bridgeCityRadius = 7;
+    const arcWidth = 3;
+    const arcOpacity = 1;
+    const dotOpacity = 1;
+    const dotStrokeWidth = 1;
+    const dotStroke = '#fff';
+    // Add US map background
+    d3.json('https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json').then(function (us) {
+        mapGroup.selectAll('path')
+            .data(topojson.feature(us, us.objects.states).features)
+            .join('path')
+            .attr('d', path)
+            .attr('fill', '#eee')
+            .attr('stroke', '#ccc')
+            .attr('stroke-width', 0.5);
+
+        // Add team locations
+        const teamDots = dotsGroup.selectAll('circle')
+            .data(Object.entries(team_locations))
+            .join('circle')
+            .attr('cx', d => projection([d[1].lng, d[1].lat])[0])
+            .attr('cy', d => projection([d[1].lng, d[1].lat])[1])
+            .attr('r', cityRadius)
+            .attr('fill', d => getTeamColors(d[0]).primary)
+            .attr('stroke', dotStroke)
+            .attr('stroke-width', dotStrokeWidth)
+            .attr('class', d => `team-dot ${d[0].replace(/\s+/g, '-')}`)
+            .style('opacity', dotOpacity)
+            .on('click', (event, d) => {
+                const teamName = d[0];
+                const teamSelect = document.getElementById('teamSelect');
+                const secondTeamSelect = document.getElementById('secondTeamSelect');
+                const coachSelect = document.getElementById('coachSelect');
+                coachSelect.value = '';
+
+                if (event.shiftKey) {
+                    // Shift-click: select as second team
+                    if (teamSelect.value && teamSelect.value !== teamName) {
+                        secondTeamSelect.value = teamName;
+                        updateVisualization(null, teamSelect.value, teamName);
+                        const filteredData = filterTeamToTeam(teamSelect.value, teamName);
+                        updateTeamComparisonDetails(teamSelect.value, teamName, filteredData);
+                    }
+                } else {
+                    // Regular click: select as primary team
+                    teamSelect.value = teamName;
+                    secondTeamSelect.value = '';
+                    updateVisualization(null, teamName, null);
+                    updateTeamDetails(teamName);
+                }
+            })
+            .on('mouseover', (event, d) => {
+                const currentRadius = parseFloat(d3.select(event.currentTarget).attr('r'));
+                d3.select(event.currentTarget)
+                    .transition()
+                    .duration(200)
+                    .attr('r', hoverRadius);
+
+                // Add tooltip
+                const tooltip = mapSvg.append('text')
+                    .attr('class', 'map-tooltip')
+                    .attr('x', projection([d[1].lng, d[1].lat])[0])
+                    .attr('y', projection([d[1].lng, d[1].lat])[1] - 10)
+                    .attr('text-anchor', 'middle')
+                    .attr('fill', '#333')
+                    .style('font-size', '10px')
+                    .text(d[0]);
+            })
+            .on('mouseout', (event, d) => {
+                const baseRadius = getMapDotRadius(d[0], selectedTeam, secondSelectedTeam);
+                d3.select(event.currentTarget)
+                    .transition()
+                    .duration(200)
+                    .attr('r', d[0] === selectedTeam || d[0] === secondSelectedTeam ? selectedCityRadius : cityRadius);
+                mapSvg.selectAll('.map-tooltip').remove();
+            });
+
+        // Function to get map dot radius based on team status
+        function getMapDotRadius(teamName, selectedTeam, secondSelectedTeam, networkedTeams) {
+            if (teamName === selectedTeam || teamName === secondSelectedTeam) return selectedCityRadius;
+            if (networkedTeams && networkedTeams.has(teamName)) return bridgeCityRadius;
+            return cityRadius;
+        }
+
+        // Function to draw arc between two cities
+        function drawConnectionArc(team1, team2) {
+            arcGroup.selectAll('*').remove();
+
+            if (!team1 || !team2) return;
+
+            const loc1 = team_locations[team1];
+            const loc2 = team_locations[team2];
+
+            if (!loc1 || !loc2) return;
+
+            const point1 = projection([loc1.lng, loc1.lat]);
+            const point2 = projection([loc2.lng, loc2.lat]);
+
+            if (!point1 || !point2) return;
+
+            // Calculate midpoint and add some curve
+            const dx = point2[0] - point1[0];
+            const dy = point2[1] - point1[1];
+            const dr = Math.sqrt(dx * dx + dy * dy);
+
+            // Calculate control point for quadratic curve
+            const midX = (point1[0] + point2[0]) / 2;
+            const midY = (point1[1] + point2[1]) / 2;
+            const curvature = 0.3;
+            const controlX = midX - dy * curvature;
+            const controlY = midY + dx * curvature;
+
+            // Create the arc path
+            const arcPath = `M${point1[0]},${point1[1]} Q${controlX},${controlY} ${point2[0]},${point2[1]}`;
+
+            // Draw the arc
+            arcGroup.append('path')
+                .attr('d', arcPath)
+                .attr('fill', 'none')
+                .attr('stroke', getTeamColors(team1).primary)
+                .attr('stroke-width', arcWidth)
+                .attr('marker-end', 'url(#arrowhead)')
+                .attr('marker-start', 'url(#arrowhead)')
+                .attr('opacity', arcOpacity);
+        }
+
+        // Update map when selection changes
+        function updateMapSelection(teamName, secondTeamName, networkedTeams) {
+            // Update all dots based on their status
+            teamDots
+                .attr('r', d => getMapDotRadius(d[0], teamName, secondTeamName, networkedTeams))
+                .style('opacity', d => {
+                    if (d[0] === teamName || d[0] === secondTeamName) return 1;
+                    if (networkedTeams && networkedTeams.has(d[0])) return 0.8;
+                    return 0.4;
+                })
+                .attr('stroke-width', d => {
+                    if (d[0] === teamName || d[0] === secondTeamName) return 2;
+                    if (networkedTeams && networkedTeams.has(d[0])) return 1.5;
+                    return 1;
+                });
+
+            // Draw connection arc if both teams are selected
+            if (teamName && secondTeamName) {
+                drawConnectionArc(teamName, secondTeamName);
+            } else {
+                arcGroup.selectAll('*').remove();
+            }
+        }
+
+        // Export updateMapSelection function
+        window.updateMapSelection = updateMapSelection;
+    });
+}
+
+// Modify the initialization to create the map
 document.addEventListener('DOMContentLoaded', () => {
     initializeFilters();
     drawNetwork();
+    createUSMap();
 });
 
 // Utility functions
